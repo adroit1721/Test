@@ -8,8 +8,6 @@ export function getSupabaseConfig(): { supabaseUrl: string; supabaseAnonKey: str
   const envUrl = metaEnv.VITE_SUPABASE_URL || '';
   const envKey = metaEnv.VITE_SUPABASE_ANON_KEY || '';
 
-  const localUrl = typeof window !== 'undefined' ? localStorage.getItem('ngdc_supabase_url') || '' : '';
-  const localKey = typeof window !== 'undefined' ? localStorage.getItem('ngdc_supabase_anon_key') || '' : '';
 
   let finalUrl = (envUrl || localUrl || '').trim();
   // Supabase JS client automatically appends /rest/v1 for database queries.
