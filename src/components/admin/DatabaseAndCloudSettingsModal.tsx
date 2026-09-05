@@ -17,6 +17,7 @@ import {
   isSupabaseConfigured,
   resetSupabaseInstance,
   SUPABASE_CADETS_SQL_SCHEMA,
+  SUPABASE_SITE_SETTINGS_SQL_SCHEMA,
   fetchCadetsFromSupabase,
 } from '../../utils/supabaseClient';
 import {
@@ -375,6 +376,7 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
 
               <pre className="p-4 bg-[#141411] text-[#fcfbf7] rounded-2xl text-[11px] font-mono overflow-x-auto max-h-64 border border-[#423e35]">
                 {SUPABASE_CADETS_SQL_SCHEMA}
+                {SUPABASE_SITE_SETTINGS_SQL_SCHEMA}
               </pre>
             </div>
           )}
@@ -383,3 +385,4 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
     </div>
   );
 };
+

@@ -37,6 +37,8 @@ import {
   upsertCadetToSupabase,
   deleteCadetFromSupabase,
   isSupabaseConfigured,
+  fetchSiteSettings,
+  upsertSiteSetting,
 } from '../utils/supabaseClient';
 
 // Initial default Honor Board entries in 3 categories
@@ -702,9 +704,48 @@ const AdminDataContext = createContext<AdminDataContextType | undefined>(undefin
 
 export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // --- Admin PIN (Default: 1721) ---
+  
+  // --- Supabase Site Settings Initialization ---
+  useEffect(() => {
+    async function loadSettings() {
+      const settings = await fetchSiteSettings();
+      if (settings) {
+        if (settings['ngdc_admin_service_pin']) setServicePin(settings['ngdc_admin_service_pin']);
+        if (settings['ngdc_hero_slides']) setHeroSlides(settings['ngdc_hero_slides']);
+        if (settings['ngdc_principal_message']) setPrincipalMessage(settings['ngdc_principal_message']);
+        if (settings['ngdc_vice_principal_message']) setVicePrincipalMessage(settings['ngdc_vice_principal_message']);
+        if (settings['ngdc_about_overview']) setAboutOverview(settings['ngdc_about_overview']);
+        if (settings['ngdc_bncco1_message']) setBncco1Message(settings['ngdc_bncco1_message']);
+        if (settings['ngdc_bncco2_message']) setBncco2Message(settings['ngdc_bncco2_message']);
+        if (settings['ngdc_platoon_commander_message']) setPlatoonCommanderMessage(settings['ngdc_platoon_commander_message']);
+        if (settings['ngdc_about_sections']) setAboutSections(settings['ngdc_about_sections']);
+        if (settings['ngdc_cadet_ranks']) setCadetRanks(settings['ngdc_cadet_ranks']);
+        if (settings['ngdc_trainings']) setTrainingAnnouncements(settings['ngdc_trainings']);
+        if (settings['ngdc_training_form_fields']) setTrainingFormFields(settings['ngdc_training_form_fields']);
+        if (settings['ngdc_training_submissions']) setTrainingSubmissions(settings['ngdc_training_submissions']);
+        if (settings['ngdc_notices']) setNotices(settings['ngdc_notices']);
+        if (settings['ngdc_blogs']) setBlogs(settings['ngdc_blogs']);
+        if (settings['ngdc_memories']) setMemories(settings['ngdc_memories']);
+        if (settings['ngdc_cadet_reg_fields']) setCadetRegFields(settings['ngdc_cadet_reg_fields']);
+        // Ignore cadet_users_v8 as they are handled by Supabase direct table
+        if (settings['ngdc_honor_entries_3cat']) setHonorEntries(settings['ngdc_honor_entries_3cat']);
+        if (settings['ngdc_contact_config']) setContactConfig(settings['ngdc_contact_config']);
+        if (settings['ngdc_contact_messages']) setContactMessages(settings['ngdc_contact_messages']);
+        if (settings['ngdc_recruitment_open']) setIsRecruitmentOpen(settings['ngdc_recruitment_open'] === 'true');
+        if (settings['ngdc_recruitment_announcement']) setRecruitmentAnnouncement(settings['ngdc_recruitment_announcement']);
+        if (settings['ngdc_recruitment_title']) setRecruitmentNoticeTitle(settings['ngdc_recruitment_title']);
+        if (settings['ngdc_recruitment_form_fields']) setRecruitmentFormFields(settings['ngdc_recruitment_form_fields']);
+        if (settings['ngdc_recruitment_applicants']) setRecruitmentApplicants(settings['ngdc_recruitment_applicants']);
+        if (settings['ngdc_recruitment_signatories']) setRecruitmentSignatories(settings['ngdc_recruitment_signatories']);
+        if (settings['ngdc_footer_config']) setFooterConfig(settings['ngdc_footer_config']);
+      }
+    }
+    loadSettings();
+  }, []);
+
   const [servicePin, setServicePin] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_admin_service_pin');
+      const saved = null /* localStorage removed */;
       if (saved) return saved;
     }
     return '1721';
@@ -744,7 +785,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     setServicePin(newPin);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('ngdc_admin_service_pin', newPin);
+      upsertSiteSetting('ngdc_admin_service_pin', newPin);
     }
     return { success: true, message: 'Service PIN updated successfully!' };
   };
@@ -752,7 +793,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 1. Home Hero Slides ---
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_hero_slides');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -761,7 +802,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_hero_slides', JSON.stringify(heroSlides));
+    upsertSiteSetting('ngdc_hero_slides', heroSlides);
   }, [heroSlides]);
 
   const addHeroSlide = (slide: Omit<HeroSlide, 'id'>) => {
@@ -784,7 +825,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 1.1 Executive Messages (Principal & Vice-Principal) ---
   const [principalMessage, setPrincipalMessage] = useState<ExecutiveMessageConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_principal_message');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try {
           return { ...DEFAULT_PRINCIPAL_MESSAGE, ...JSON.parse(saved) };
@@ -795,7 +836,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_principal_message', JSON.stringify(principalMessage));
+    upsertSiteSetting('ngdc_principal_message', principalMessage);
   }, [principalMessage]);
 
   const updatePrincipalMessage = (config: Partial<ExecutiveMessageConfig>) => {
@@ -808,7 +849,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [vicePrincipalMessage, setVicePrincipalMessage] = useState<ExecutiveMessageConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_vice_principal_message');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try {
           return { ...DEFAULT_VICE_PRINCIPAL_MESSAGE, ...JSON.parse(saved) };
@@ -819,7 +860,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_vice_principal_message', JSON.stringify(vicePrincipalMessage));
+    upsertSiteSetting('ngdc_vice_principal_message', vicePrincipalMessage);
   }, [vicePrincipalMessage]);
 
   const updateVicePrincipalMessage = (config: Partial<ExecutiveMessageConfig>) => {
@@ -833,7 +874,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 2. About Us - Overview, Messages & Rank Hierarchy ---
   const [aboutOverview, setAboutOverview] = useState<AboutOverviewConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_about_overview');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -842,7 +883,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_about_overview', JSON.stringify(aboutOverview));
+    upsertSiteSetting('ngdc_about_overview', aboutOverview);
   }, [aboutOverview]);
 
   const updateAboutOverview = (config: Partial<AboutOverviewConfig>) => {
@@ -855,7 +896,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [bncco1Message, setBncco1Message] = useState<ExecutiveMessageConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_bncco1_message');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -864,7 +905,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_bncco1_message', JSON.stringify(bncco1Message));
+    upsertSiteSetting('ngdc_bncco1_message', bncco1Message);
   }, [bncco1Message]);
 
   const updateBncco1Message = (config: Partial<ExecutiveMessageConfig>) => {
@@ -877,7 +918,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [bncco2Message, setBncco2Message] = useState<ExecutiveMessageConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_bncco2_message');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -886,7 +927,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_bncco2_message', JSON.stringify(bncco2Message));
+    upsertSiteSetting('ngdc_bncco2_message', bncco2Message);
   }, [bncco2Message]);
 
   const updateBncco2Message = (config: Partial<ExecutiveMessageConfig>) => {
@@ -899,7 +940,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [platoonCommanderMessage, setPlatoonCommanderMessage] = useState<ExecutiveMessageConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_platoon_commander_message');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -908,7 +949,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_platoon_commander_message', JSON.stringify(platoonCommanderMessage));
+    upsertSiteSetting('ngdc_platoon_commander_message', platoonCommanderMessage);
   }, [platoonCommanderMessage]);
 
   const updatePlatoonCommanderMessage = (config: Partial<ExecutiveMessageConfig>) => {
@@ -921,7 +962,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [aboutSections, setAboutSections] = useState<CustomAboutSection[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_about_sections');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -942,7 +983,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_about_sections', JSON.stringify(aboutSections));
+    upsertSiteSetting('ngdc_about_sections', aboutSections);
   }, [aboutSections]);
 
   const addAboutSection = (sec: Omit<CustomAboutSection, 'id'>) => {
@@ -960,7 +1001,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [cadetRanks, setCadetRanks] = useState<CadetRankHierarchyItem[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_cadet_ranks');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -969,7 +1010,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_cadet_ranks', JSON.stringify(cadetRanks));
+    upsertSiteSetting('ngdc_cadet_ranks', cadetRanks);
   }, [cadetRanks]);
 
   const addCadetRank = (rank: Omit<CadetRankHierarchyItem, 'id'>) => {
@@ -988,7 +1029,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 3. Trainings & Events ---
   const [trainingAnnouncements, setTrainingAnnouncements] = useState<TrainingAnnouncement[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_trainings');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -997,7 +1038,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_trainings', JSON.stringify(trainingAnnouncements));
+    upsertSiteSetting('ngdc_trainings', trainingAnnouncements);
   }, [trainingAnnouncements]);
 
   const addTrainingAnnouncement = (ann: Omit<TrainingAnnouncement, 'id'>) => {
@@ -1015,7 +1056,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [trainingFormFields, setTrainingFormFields] = useState<FormFieldConfig[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_training_form_fields');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1024,12 +1065,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_training_form_fields', JSON.stringify(trainingFormFields));
+    upsertSiteSetting('ngdc_training_form_fields', trainingFormFields);
   }, [trainingFormFields]);
 
   const [trainingSubmissions, setTrainingSubmissions] = useState<CustomFormSubmission[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_training_submissions');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1044,13 +1085,13 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       submittedAt: new Date().toLocaleString(),
     };
     setTrainingSubmissions((prev) => [newSub, ...prev]);
-    localStorage.setItem('ngdc_training_submissions', JSON.stringify([newSub, ...trainingSubmissions]));
+    upsertSiteSetting('ngdc_training_submissions', [newSub, ...trainingSubmissions]);
   };
 
   // --- 4. Notice & Blogs ---
   const [notices, setNotices] = useState<NoticeItem[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_notices');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1059,7 +1100,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_notices', JSON.stringify(notices));
+    upsertSiteSetting('ngdc_notices', notices);
   }, [notices]);
 
   const addNotice = (notice: Omit<NoticeItem, 'id'>) => {
@@ -1077,7 +1118,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [blogs, setBlogs] = useState<BlogItem[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_blogs');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1086,7 +1127,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_blogs', JSON.stringify(blogs));
+    upsertSiteSetting('ngdc_blogs', blogs);
   }, [blogs]);
 
   const addBlog = (blog: Omit<BlogItem, 'id'>) => {
@@ -1105,7 +1146,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 5. Memories ---
   const [memories, setMemories] = useState<MemoryItem[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_memories');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1114,7 +1155,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_memories', JSON.stringify(memories));
+    upsertSiteSetting('ngdc_memories', memories);
   }, [memories]);
 
   const addMemory = (mem: Omit<MemoryItem, 'id'>) => {
@@ -1133,7 +1174,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 6. Cadet Corner - Database & Directory & Form Builder ---
   const [cadetRegFields, setCadetRegFields] = useState<FormFieldConfig[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_cadet_reg_fields');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1142,12 +1183,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_cadet_reg_fields', JSON.stringify(cadetRegFields));
+    upsertSiteSetting('ngdc_cadet_reg_fields', cadetRegFields);
   }, [cadetRegFields]);
 
   const [cadetUsers, setCadetUsers] = useState<CadetUserAccount[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_cadet_users_v8');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -1179,7 +1220,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('ngdc_cadet_users_v8', JSON.stringify(cadetUsers));
+    upsertSiteSetting('ngdc_cadet_users_v8', cadetUsers);
   }, [cadetUsers]);
 
   const addCadetUser = (user: Omit<CadetUserAccount, 'id'>) => {
@@ -1396,7 +1437,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 7. Honor Board - 3 Tabbed Categories ---
   const [honorEntries, setHonorEntries] = useState<HonorEntryItem[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_honor_entries_3cat');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1405,7 +1446,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_honor_entries_3cat', JSON.stringify(honorEntries));
+    upsertSiteSetting('ngdc_honor_entries_3cat', honorEntries);
   }, [honorEntries]);
 
   const addHonorEntry = (entry: Omit<HonorEntryItem, 'id'>) => {
@@ -1427,7 +1468,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 8. Contact ---
   const [contactConfig, setContactConfig] = useState<ContactConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_contact_config');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1436,7 +1477,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_contact_config', JSON.stringify(contactConfig));
+    upsertSiteSetting('ngdc_contact_config', contactConfig);
   }, [contactConfig]);
 
   const updateContactConfig = (config: Partial<ContactConfig>) => {
@@ -1445,7 +1486,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_contact_messages');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1454,7 +1495,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_contact_messages', JSON.stringify(contactMessages));
+    upsertSiteSetting('ngdc_contact_messages', contactMessages);
   }, [contactMessages]);
 
   const addContactMessage = (msg: Omit<ContactMessage, 'id' | 'timestamp'>) => {
@@ -1478,19 +1519,19 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 9. Cadet Recruitment ---
   const [isRecruitmentOpen, setIsRecruitmentOpen] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_recruitment_open');
+      const saved = null /* localStorage removed */;
       if (saved !== null) return saved === 'true';
     }
     return true; // Default Open
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_recruitment_open', isRecruitmentOpen ? 'true' : 'false');
+    upsertSiteSetting('ngdc_recruitment_open', isRecruitmentOpen ? 'true' : 'false');
   }, [isRecruitmentOpen]);
 
   const [recruitmentAnnouncement, setRecruitmentAnnouncement] = useState<RecruitmentAnnouncementConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_recruitment_announcement');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1499,7 +1540,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_recruitment_announcement', JSON.stringify(recruitmentAnnouncement));
+    upsertSiteSetting('ngdc_recruitment_announcement', recruitmentAnnouncement);
   }, [recruitmentAnnouncement]);
 
   const updateRecruitmentAnnouncement = (ann: Partial<RecruitmentAnnouncementConfig>) => {
@@ -1508,19 +1549,19 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [recruitmentNoticeTitle, setRecruitmentNoticeTitle] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_recruitment_title');
+      const saved = null /* localStorage removed */;
       if (saved) return saved;
     }
     return 'Cadet Recruitment Batch 2024-2025 Enrolment Circular';
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_recruitment_title', recruitmentNoticeTitle);
+    upsertSiteSetting('ngdc_recruitment_title', recruitmentNoticeTitle);
   }, [recruitmentNoticeTitle]);
 
   const [recruitmentFormFields, setRecruitmentFormFields] = useState<FormFieldConfig[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_recruitment_form_fields');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1529,12 +1570,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_recruitment_form_fields', JSON.stringify(recruitmentFormFields));
+    upsertSiteSetting('ngdc_recruitment_form_fields', recruitmentFormFields);
   }, [recruitmentFormFields]);
 
   const [recruitmentApplicants, setRecruitmentApplicants] = useState<RecruitmentApplicant[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_recruitment_applicants');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1543,13 +1584,13 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_recruitment_applicants', JSON.stringify(recruitmentApplicants));
+    upsertSiteSetting('ngdc_recruitment_applicants', recruitmentApplicants);
   }, [recruitmentApplicants]);
 
   // --- Official Recruitment Printable Signatories Configuration (Editable yearly) ---
   const [recruitmentSignatories, setRecruitmentSignatories] = useState<RecruitmentSignatoriesConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_recruitment_signatories');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1558,7 +1599,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_recruitment_signatories', JSON.stringify(recruitmentSignatories));
+    upsertSiteSetting('ngdc_recruitment_signatories', recruitmentSignatories);
   }, [recruitmentSignatories]);
 
   const updateRecruitmentSignatories = (config: Partial<RecruitmentSignatoriesConfig>) => {
@@ -1666,7 +1707,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 10. Footer Config ---
   const [footerConfig, setFooterConfig] = useState<FooterConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_footer_config');
+      const saved = null /* localStorage removed */;
       if (saved) {
         try { return JSON.parse(saved); } catch {}
       }
@@ -1675,7 +1716,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   useEffect(() => {
-    localStorage.setItem('ngdc_footer_config', JSON.stringify(footerConfig));
+    upsertSiteSetting('ngdc_footer_config', footerConfig);
   }, [footerConfig]);
 
   const updateFooterConfig = (config: Partial<FooterConfig>) => {
@@ -1684,7 +1725,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const resetAllToDefault = () => {
     if (confirm('Are you sure you want to reset all portal content to factory defaults?')) {
-      localStorage.clear();
+      // localStorage.clear() removed
       window.location.reload();
     }
   };
@@ -1838,3 +1879,4 @@ export const useAdminData = () => {
   }
   return context;
 };
+

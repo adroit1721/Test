@@ -243,3 +243,73 @@ ALTER TABLE cadets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public Read Cadets" ON cadets FOR SELECT USING (true);
 CREATE POLICY "Public Manage Cadets" ON cadets FOR ALL USING (true);
 `;
+
+/**
+ * SQL Schema for site settings (Hero slides, notices, etc.)
+ */
+export const SUPABASE_SITE_SETTINGS_SQL_SCHEMA = `
+-- Run this in your Supabase SQL Editor to create the settings table:
+CREATE TABLE IF NOT EXISTS site_settings (
+  id TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS and create open policy for authorized portal read/write:
+ALTER TABLE site_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public Read Settings" ON site_settings FOR SELECT USING (true);
+CREATE POLICY "Public Manage Settings" ON site_settings FOR ALL USING (true);
+`;
+
+/**
+ * Fetch all site settings from Supabase
+ */
+export async function fetchSiteSettings(): Promise<Record<string, any> | null> {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client.from('site_settings').select('*');
+    if (error) {
+      console.warn('Supabase fetch site settings error:', error.message);
+      return null;
+    }
+
+    if (Array.isArray(data)) {
+      const settingsMap: Record<string, any> = {};
+      data.forEach((row) => {
+        settingsMap[row.id] = row.value;
+      });
+      return settingsMap;
+    }
+    return null;
+  } catch (err) {
+    console.warn('Supabase fetch site settings failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Insert or update a specific site setting in Supabase
+ */
+export async function upsertSiteSetting(id: string, value: any): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  try {
+    const record = { id, value, updated_at: new Date().toISOString() };
+    const { error } = await client
+      .from('site_settings')
+      .upsert(record, { onConflict: 'id' });
+
+    if (error) {
+      console.warn(`Supabase upsert setting error for ${id}:`, error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn(`Supabase upsert setting failed for ${id}:`, err);
+    return false;
+  }
+}
