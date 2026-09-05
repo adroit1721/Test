@@ -7,7 +7,6 @@ import {
   AlertCircle,
   Copy,
   RefreshCw,
-  ExternalLink,
   ShieldCheck,
   Server,
   Upload,
@@ -20,11 +19,8 @@ import {
   SUPABASE_SITE_SETTINGS_SQL_SCHEMA,
   fetchCadetsFromSupabase,
 } from '../../utils/supabaseClient';
-import {
-  getCloudinaryConfig,
-  isCloudinaryConfigured,
-  uploadImageToCloudinary,
-} from '../../utils/cloudinary';
+import { getCloudinaryConfig, isCloudinaryConfigured } from '../../utils/cloudinary';
+import { upsertSetting } from '../../utils/siteSettings';
 
 interface DatabaseAndCloudSettingsModalProps {
   isOpen: boolean;
@@ -44,19 +40,18 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
 
   const [activeTab, setActiveTab] = useState<'supabase' | 'cloudinary' | 'schema'>('supabase');
   const [testingSupabase, setTestingSupabase] = useState(false);
-  const [supabaseStatus, setSupabaseStatus] = useState<{ type: 'idle' | 'success' | 'error'; message: string }>({
-    type: 'idle',
-    message: '',
-  });
+  const [supabaseStatus, setSupabaseStatus] = useState<{ type: 'idle' | 'success' | 'error'; message: string }>(
+    { type: 'idle', message: '' }
+  );
 
   const [testingCloudinary, setTestingCloudinary] = useState(false);
-  const [cloudinaryStatus, setCloudinaryStatus] = useState<{ type: 'idle' | 'success' | 'error'; message: string }>({
-    type: 'idle',
-    message: '',
-  });
+  const [cloudinaryStatus, setCloudinaryStatus] = useState<{ type: 'idle' | 'success' | 'error'; message: string }>(
+    { type: 'idle', message: '' }
+  );
 
   const [copiedSchema, setCopiedSchema] = useState(false);
 
+  // Load existing settings when modal opens
   useEffect(() => {
     if (isOpen) {
       const sbConfig = getSupabaseConfig();
@@ -82,13 +77,12 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
   if (!isOpen) return null;
 
   const handleSaveSupabase = async () => {
-    localStorage.setItem('ngdc_supabase_url', supabaseUrl.trim());
-    localStorage.setItem('ngdc_supabase_anon_key', supabaseKey.trim());
+    await upsertSetting('ngdc_supabase_url', supabaseUrl.trim());
+    await upsertSetting('ngdc_supabase_anon_key', supabaseKey.trim());
     resetSupabaseInstance();
 
     setTestingSupabase(true);
     setSupabaseStatus({ type: 'idle', message: 'Testing Supabase connection...' });
-
     try {
       const res = await fetchCadetsFromSupabase();
       if (res !== null) {
@@ -100,34 +94,21 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
       } else {
         setSupabaseStatus({
           type: 'error',
-          message: 'Connected to Supabase endpoint, but could not query "cadets" table. Please ensure the table exists using the SQL Schema tab.',
+          message:
+            'Connected to Supabase endpoint, but could not query "cadets" table. Please ensure the table exists using the SQL Schema tab.',
         });
       }
     } catch (err: any) {
-      setSupabaseStatus({
-        type: 'error',
-        message: err?.message || 'Connection failed. Please verify URL & Anon Key.',
-      });
+      setSupabaseStatus({ type: 'error', message: err?.message || 'Supabase connection failed.' });
     } finally {
       setTestingSupabase(false);
     }
   };
 
-  const handleSaveCloudinary = () => {
-    localStorage.setItem('ngdc_cloudinary_cloud_name', cloudinaryName.trim());
-    localStorage.setItem('ngdc_cloudinary_upload_preset', cloudinaryPreset.trim());
-
-    if (cloudinaryName.trim() && cloudinaryPreset.trim()) {
-      setCloudinaryStatus({
-        type: 'success',
-        message: 'Cloudinary credentials saved! Active for all image uploads.',
-      });
-    } else {
-      setCloudinaryStatus({
-        type: 'idle',
-        message: 'Saved. Incomplete credentials will use local fallback.',
-      });
-    }
+  const handleSaveCloudinary = async () => {
+    await upsertSetting('ngdc_cloudinary_cloud_name', cloudinaryName.trim());
+    await upsertSetting('ngdc_cloudinary_upload_preset', cloudinaryPreset.trim());
+    setCloudinaryStatus({ type: 'success', message: 'Cloudinary credentials saved!' });
   };
 
   const handleCopySchema = () => {
@@ -146,22 +127,16 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-[#1c1c18] dark:text-[#fcfbf7] text-base">
-                Database & Cloud Storage Configuration
-              </h3>
+              <h3 className="font-bold text-[#1c1c18] dark:text-[#fcfbf7] text-base">Database &amp; Cloud Storage Configuration</h3>
               <p className="text-xs text-[#7c7767] dark:text-[#aca596]">
-                Supabase Postgres for Cadet Data & Cloudinary for Image Uploads
+                Supabase Postgres for Cadet Data &amp; Cloudinary for Image Uploads
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-[#7c7767] hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
-          >
+          <button onClick={onClose} className="p-2 rounded-xl text-[#7c7767] hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
-
         {/* Tab Navigation */}
         <div className="flex border-b border-[#cdc6b3]/40 dark:border-[#423e35] px-5 bg-white dark:bg-[#1a1915]">
           <button
@@ -174,9 +149,7 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
           >
             <Database className="w-4 h-4" />
             <span>Supabase Postgres DB</span>
-            {isSupabaseConfigured() && (
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            )}
+            {isSupabaseConfigured() && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
           </button>
           <button
             onClick={() => setActiveTab('cloudinary')}
@@ -188,9 +161,7 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
           >
             <Cloud className="w-4 h-4" />
             <span>Cloudinary CDN</span>
-            {isCloudinaryConfigured() && (
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            )}
+            {isCloudinaryConfigured() && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
           </button>
           <button
             onClick={() => setActiveTab('schema')}
@@ -204,7 +175,6 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
             <span>Postgres SQL Schema</span>
           </button>
         </div>
-
         {/* Tab Content */}
         <div className="p-6 space-y-4">
           {activeTab === 'supabase' && (
@@ -216,11 +186,8 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
                   Enter your Supabase Project URL and Public Anon Key. All Cadet Corner additions, edits, and deletions will synchronize automatically with your Supabase Postgres database.
                 </div>
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                  Supabase Project URL
-                </label>
+                <label className="block text-xs font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">Supabase Project URL</label>
                 <input
                   type="text"
                   placeholder="https://xyzproject.supabase.co"
@@ -229,11 +196,8 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
                   className="w-full bg-white dark:bg-[#252420] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-xs outline-none focus:border-[#eedc82]"
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                  Supabase Anon / Public API Key
-                </label>
+                <label className="block text-xs font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">Supabase Anon / Public API Key</label>
                 <input
                   type="password"
                   placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -242,17 +206,14 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
                   className="w-full bg-white dark:bg-[#252420] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-xs outline-none focus:border-[#eedc82] font-mono"
                 />
               </div>
-
-              {/* Status Box */}
               {supabaseStatus.message && (
-                <div
-                  className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                    supabaseStatus.type === 'success'
-                      ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 border border-emerald-200'
-                      : supabaseStatus.type === 'error'
-                      ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/30 dark:text-rose-300 border border-rose-200'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                  }`}
+                <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                  supabaseStatus.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 border border-emerald-200'
+                    : supabaseStatus.type === 'error'
+                    ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/30 dark:text-rose-300 border border-rose-200'
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                }`}
                 >
                   {supabaseStatus.type === 'success' ? (
                     <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
@@ -264,7 +225,6 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
                   <span>{supabaseStatus.message}</span>
                 </div>
               )}
-
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -272,33 +232,23 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
                   disabled={testingSupabase}
                   className="japandi-btn-primary text-xs py-2 px-5 font-bold flex items-center gap-2 cursor-pointer"
                 >
-                  {testingSupabase ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                  )}
-                  <span>Save & Test Supabase Connection</span>
+                  {testingSupabase ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  <span>Save &amp; Test Supabase Connection</span>
                 </button>
               </div>
             </div>
           )}
-
           {activeTab === 'cloudinary' && (
             <div className="space-y-4">
               <div className="p-3.5 bg-[#f6f3ed] dark:bg-[#141411] border border-[#cdc6b3]/50 dark:border-[#423e35] rounded-2xl text-xs text-[#695c4e] dark:text-[#aca596] flex items-start gap-2.5">
                 <Cloud className="w-4 h-4 shrink-0 mt-0.5 text-[#6b5e10] dark:text-[#eedc82]" />
                 <div>
-                  <span className="font-bold text-[#1c1c18] dark:text-[#fcfbf7] block">
-                    Cloudinary CDN Image Hosting:
-                  </span>
+                  <span className="font-bold text-[#1c1c18] dark:text-[#fcfbf7] block">Cloudinary CDN Image Hosting:</span>
                   Uploads images directly to Cloudinary using an unsigned upload preset. Used for Cadet Profile avatars, Recruitment Header/Footer banners, and photo memories.
                 </div>
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                  Cloudinary Cloud Name
-                </label>
+                <label className="block text-xs font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">Cloudinary Cloud Name</label>
                 <input
                   type="text"
                   placeholder="e.g. dxyz123abc"
@@ -307,11 +257,8 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
                   className="w-full bg-white dark:bg-[#252420] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-xs outline-none focus:border-[#eedc82]"
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                  Unsigned Upload Preset
-                </label>
+                <label className="block text-xs font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">Unsigned Upload Preset</label>
                 <input
                   type="text"
                   placeholder="e.g. ngdc_bncc_preset"
@@ -323,20 +270,17 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
                   In Cloudinary Console &rarr; Settings &rarr; Upload &rarr; Add upload preset &rarr; set Signing Mode to <strong>Unsigned</strong>.
                 </p>
               </div>
-
               {cloudinaryStatus.message && (
-                <div
-                  className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                    cloudinaryStatus.type === 'success'
-                      ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 border border-emerald-200'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                  }`}
+                <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                  cloudinaryStatus.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 border border-emerald-200'
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                }`}
                 >
                   <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
                   <span>{cloudinaryStatus.message}</span>
                 </div>
               )}
-
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -349,17 +293,13 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
               </div>
             </div>
           )}
-
           {activeTab === 'schema' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-[#695c4e] dark:text-[#aca596]">
                   Copy and paste this SQL into your Supabase Dashboard &rarr; SQL Editor to create the <code>cadets</code> table:
                 </p>
-                <button
-                  onClick={handleCopySchema}
-                  className="japandi-btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 cursor-pointer font-bold"
-                >
+                <button onClick={handleCopySchema} className="japandi-btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 cursor-pointer font-bold">
                   {copiedSchema ? (
                     <>
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -373,7 +313,6 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
                   )}
                 </button>
               </div>
-
               <pre className="p-4 bg-[#141411] text-[#fcfbf7] rounded-2xl text-[11px] font-mono overflow-x-auto max-h-64 border border-[#423e35]">
                 {SUPABASE_CADETS_SQL_SCHEMA}
                 {SUPABASE_SITE_SETTINGS_SQL_SCHEMA}
@@ -385,4 +324,3 @@ export const DatabaseAndCloudSettingsModal: React.FC<DatabaseAndCloudSettingsMod
     </div>
   );
 };
-

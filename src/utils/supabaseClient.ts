@@ -9,7 +9,7 @@ export function getSupabaseConfig(): { supabaseUrl: string; supabaseAnonKey: str
   const envKey = metaEnv.VITE_SUPABASE_ANON_KEY || '';
 
 
-  let finalUrl = (envUrl || localUrl || '').trim();
+  let finalUrl = envUrl.trim();
   // Supabase JS client automatically appends /rest/v1 for database queries.
   // If the user accidentally provided the full REST URL, strip it to prevent 404s.
   if (finalUrl.endsWith('/rest/v1')) {
@@ -24,7 +24,7 @@ export function getSupabaseConfig(): { supabaseUrl: string; supabaseAnonKey: str
 
   return {
     supabaseUrl: finalUrl,
-    supabaseAnonKey: (envKey || localKey || '').trim(),
+    supabaseAnonKey: envKey.trim(),
   };
 }
 

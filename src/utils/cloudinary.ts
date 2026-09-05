@@ -11,14 +11,24 @@ export interface CloudinaryUploadResponse {
   error?: string;
 }
 
-export function getCloudinaryConfig(): { cloudName: string; uploadPreset: string } {
+export async function getCloudinaryConfig(): Promise<{ cloudName: string; uploadPreset: string }> {
+  // Load from Supabase site_settings first, then fall back to env variables.
+  const { supabase } = await import('./supabaseClient').then(m => ({ supabase: m.getSupabaseClient?.() }));
+  let cloudName = '';
+  let uploadPreset = '';
+  if (supabase) {
+    const { data, error } = await supabase.from('site_settings').select('value').in('id', ['ngdc_cloudinary_cloud_name', 'ngdc_cloudinary_upload_preset']);
+    if (!error && Array.isArray(data)) {
+      data.forEach((row: any) => {
+        if (row.id === 'ngdc_cloudinary_cloud_name') cloudName = row.value;
+        if (row.id === 'ngdc_cloudinary_upload_preset') uploadPreset = row.value;
+      });
+    }
+  }
+  // Env fallback (Vite) – useful for local dev
   const metaEnv = (import.meta as any).env || {};
   const envCloudName = metaEnv.VITE_CLOUDINARY_CLOUD_NAME || '';
   const envUploadPreset = metaEnv.VITE_CLOUDINARY_UPLOAD_PRESET || '';
-
-  // Also check localStorage in case admin entered credentials in portal settings
-  const localCloudName = typeof window !== 'undefined' ? localStorage.getItem('ngdc_cloudinary_cloud_name') || '' : '';
-  const localUploadPreset = typeof window !== 'undefined' ? localStorage.getItem('ngdc_cloudinary_upload_preset') || '' : '';
 
   return {
     cloudName: (envCloudName || localCloudName || '').trim(),
