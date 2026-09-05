@@ -1,0 +1,6 @@
+{
+  "name": "NGDC-BNCC Platoon Portal",
+  "description": "Official portal of the Bangladesh National Cadet Corps (BNCC) at New Govt. Degree College, Rajshahi. Fostering Knowledge & Discipline.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
