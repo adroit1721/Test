@@ -23,7 +23,8 @@ export async function loadAllSettings(): Promise<Record<string, any>> {
 export async function upsertSetting(key: string, value: any): Promise<void> {
   const client = getSupabaseClient();
   if (!client) return;
-  await client.from('site_settings').upsert({ id: key, value }, { onConflict: 'id' });
+  const record = { id: key, value, updated_at: new Date().toISOString() };
+  await client.from('site_settings').upsert([record], { onConflict: 'id' });
 }
 
 /** Get a single setting */

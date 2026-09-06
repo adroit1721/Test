@@ -711,7 +711,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const settings = await fetchSiteSettings();
       if (settings) {
         if (settings['ngdc_admin_service_pin']) setServicePin(settings['ngdc_admin_service_pin']);
-        if (settings['ngdc_hero_slides']) setHeroSlides(settings['ngdc_hero_slides']);
+        if (settings['ngdc_hero_slides']) {
+          const val = settings['ngdc_hero_slides'];
+          setHeroSlides(Array.isArray(val) ? val : (typeof val === 'string' ? JSON.parse(val) : []));
+        }
         if (settings['ngdc_principal_message']) setPrincipalMessage(settings['ngdc_principal_message']);
         if (settings['ngdc_vice_principal_message']) setVicePrincipalMessage(settings['ngdc_vice_principal_message']);
         if (settings['ngdc_about_overview']) setAboutOverview(settings['ngdc_about_overview']);

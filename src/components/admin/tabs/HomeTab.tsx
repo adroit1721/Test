@@ -172,7 +172,7 @@ export const HomeTab: React.FC = () => {
           <Sliders className="w-4 h-4" />
           <span>Hero Image Slider</span>
           <span className="text-[10px] px-2 py-0.2 rounded-full bg-[#eedc82]/20 text-[#eedc82]">
-            {heroSlides.length}
+            {heroSlides?.length || 0}
           </span>
         </button>
 
@@ -370,7 +370,7 @@ export const HomeTab: React.FC = () => {
 
           {/* Slide Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {heroSlides.map((slide, index) => (
+            {(heroSlides || []).map((slide, index) => (
               <div
                 key={slide.id}
                 className="bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3]/50 dark:border-[#423e35] rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs group hover:border-[#6b5e10] transition-all"

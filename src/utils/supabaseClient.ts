@@ -296,10 +296,11 @@ export async function upsertSiteSetting(id: string, value: any): Promise<boolean
   if (!client) return false;
 
   try {
-    const record = { id, value, updated_at: new Date().toISOString() };
+    const jsonValue = typeof value === 'object' ? value : JSON.parse(JSON.stringify(value));
+    const record = { id, value: jsonValue };
     const { error } = await client
       .from('site_settings')
-      .upsert(record, { onConflict: 'id' });
+      .upsert([record], { onConflict: 'id' });
 
     if (error) {
       console.warn(`Supabase upsert setting error for ${id}:`, error.message);
