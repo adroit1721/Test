@@ -5,11 +5,19 @@ let supabaseInstance: SupabaseClient | null = null;
 
 export function getSupabaseConfig(): { supabaseUrl: string; supabaseAnonKey: string } {
   const metaEnv = (import.meta as any).env || {};
-  const envUrl = metaEnv.VITE_SUPABASE_URL || '';
-  const envKey = metaEnv.VITE_SUPABASE_ANON_KEY || '';
+  let envUrl = metaEnv.VITE_SUPABASE_URL || '';
+  let envKey = metaEnv.VITE_SUPABASE_ANON_KEY || '';
 
+  if (typeof window !== 'undefined') {
+    try {
+      const localUrl = localStorage.getItem('ngdc_supabase_url');
+      const localKey = localStorage.getItem('ngdc_supabase_anon_key');
+      if (localUrl) envUrl = localUrl;
+      if (localKey) envKey = localKey;
+    } catch {}
+  }
 
-  let finalUrl = envUrl.trim();
+  let finalUrl = (envUrl || '').trim();
   // Supabase JS client automatically appends /rest/v1 for database queries.
   // If the user accidentally provided the full REST URL, strip it to prevent 404s.
   if (finalUrl.endsWith('/rest/v1')) {
@@ -24,7 +32,7 @@ export function getSupabaseConfig(): { supabaseUrl: string; supabaseAnonKey: str
 
   return {
     supabaseUrl: finalUrl,
-    supabaseAnonKey: envKey.trim(),
+    supabaseAnonKey: (envKey || '').trim(),
   };
 }
 
@@ -261,30 +269,75 @@ CREATE POLICY "Public Manage Settings" ON site_settings FOR ALL USING (true);
 `;
 
 /**
- * Fetch all site settings from Supabase
+ * Fetch all site settings from Supabase (with localStorage cache fallback)
  */
 export async function fetchSiteSettings(): Promise<Record<string, any> | null> {
+  const localMap: Record<string, any> = {};
+  if (typeof window !== 'undefined') {
+    try {
+      const knownKeys = [
+        'ngdc_principal_message',
+        'ngdc_vice_principal_message',
+        'ngdc_hero_slides',
+        'ngdc_about_overview',
+        'ngdc_bncco1_message',
+        'ngdc_bncco2_message',
+        'ngdc_platoon_commander_message',
+        'ngdc_about_sections',
+        'ngdc_cadet_ranks',
+        'ngdc_trainings',
+        'ngdc_training_form_fields',
+        'ngdc_training_submissions',
+        'ngdc_notices',
+        'ngdc_blogs',
+        'ngdc_memories',
+        'ngdc_cadet_reg_fields',
+        'ngdc_honor_entries_3cat',
+        'ngdc_contact_config',
+        'ngdc_contact_messages',
+        'ngdc_footer_config',
+      ];
+      for (const k of knownKeys) {
+        const item = localStorage.getItem(k);
+        if (item) {
+          try {
+            localMap[k] = JSON.parse(item);
+          } catch {
+            localMap[k] = item;
+          }
+        }
+      }
+    } catch {}
+  }
+
   const client = getSupabaseClient();
-  if (!client) return null;
+  if (!client) {
+    return Object.keys(localMap).length > 0 ? localMap : null;
+  }
 
   try {
     const { data, error } = await client.from('site_settings').select('*');
     if (error) {
       console.warn('Supabase fetch site settings error:', error.message);
-      return null;
+      return Object.keys(localMap).length > 0 ? localMap : null;
     }
 
     if (Array.isArray(data)) {
-      const settingsMap: Record<string, any> = {};
+      const settingsMap: Record<string, any> = { ...localMap };
       data.forEach((row) => {
         settingsMap[row.id] = row.value;
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(row.id, typeof row.value === 'string' ? row.value : JSON.stringify(row.value));
+          } catch {}
+        }
       });
       return settingsMap;
     }
-    return null;
+    return Object.keys(localMap).length > 0 ? localMap : null;
   } catch (err) {
     console.warn('Supabase fetch site settings failed:', err);
-    return null;
+    return Object.keys(localMap).length > 0 ? localMap : null;
   }
 }
 
@@ -292,12 +345,21 @@ export async function fetchSiteSettings(): Promise<Record<string, any> | null> {
  * Insert or update a specific site setting in Supabase
  */
 export async function upsertSiteSetting(id: string, value: any): Promise<boolean> {
+  // 1. Immediately cache locally so data is never lost even if network or Supabase is offline
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(id, typeof value === 'string' ? value : JSON.stringify(value));
+    } catch (e) {
+      console.warn(`localStorage cache error for ${id}:`, e);
+    }
+  }
+
   const client = getSupabaseClient();
-  if (!client) return false;
+  if (!client) return true; // Successfully saved locally
 
   try {
     const jsonValue = typeof value === 'object' ? value : JSON.parse(JSON.stringify(value));
-    const record = { id, value: jsonValue };
+    const record = { id, value: jsonValue, updated_at: new Date().toISOString() };
     const { error } = await client
       .from('site_settings')
       .upsert([record], { onConflict: 'id' });

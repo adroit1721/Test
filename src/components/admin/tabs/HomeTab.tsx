@@ -18,6 +18,8 @@ import {
   Save,
   Shield,
   Check,
+  Loader2,
+  Link2,
 } from 'lucide-react';
 
 export const HomeTab: React.FC = () => {
@@ -53,11 +55,13 @@ export const HomeTab: React.FC = () => {
   const [principalForm, setPrincipalForm] = useState<ExecutiveMessageConfig>({ ...principalMessage });
   const [principalSavedToast, setPrincipalSavedToast] = useState(false);
   const [isPrincipalDirty, setIsPrincipalDirty] = useState(false);
+  const [isSavingPrincipal, setIsSavingPrincipal] = useState(false);
 
   // Vice-Principal Form State & Dirty Tracking
   const [vicePrincipalForm, setVicePrincipalForm] = useState<ExecutiveMessageConfig>({ ...vicePrincipalMessage });
   const [vicePrincipalSavedToast, setVicePrincipalSavedToast] = useState(false);
   const [isVicePrincipalDirty, setIsVicePrincipalDirty] = useState(false);
+  const [isSavingVicePrincipal, setIsSavingVicePrincipal] = useState(false);
 
   // Sync state if context changes externally ONLY when form is not dirty
   useEffect(() => {
@@ -130,6 +134,7 @@ export const HomeTab: React.FC = () => {
     reader.onload = (event) => {
       if (event.target?.result) {
         setPrincipalForm((prev) => ({ ...prev, photoUrl: event.target!.result as string }));
+        setIsPrincipalDirty(true);
       }
     };
     reader.readAsDataURL(file);
@@ -143,27 +148,42 @@ export const HomeTab: React.FC = () => {
     reader.onload = (event) => {
       if (event.target?.result) {
         setVicePrincipalForm((prev) => ({ ...prev, photoUrl: event.target!.result as string }));
+        setIsVicePrincipalDirty(true);
       }
     };
     reader.readAsDataURL(file);
   };
 
   // Save Principal Message
-  const handleSavePrincipal = (e: React.FormEvent) => {
+  const handleSavePrincipal = async (e: React.FormEvent) => {
     e.preventDefault();
-    updatePrincipalMessage(principalForm);
-    setIsPrincipalDirty(false);
-    setPrincipalSavedToast(true);
-    setTimeout(() => setPrincipalSavedToast(false), 3500);
+    setIsSavingPrincipal(true);
+    try {
+      await updatePrincipalMessage(principalForm);
+      setIsPrincipalDirty(false);
+      setPrincipalSavedToast(true);
+      setTimeout(() => setPrincipalSavedToast(false), 3500);
+    } catch (err) {
+      console.error('Failed to save principal message:', err);
+    } finally {
+      setIsSavingPrincipal(false);
+    }
   };
 
   // Save Vice-Principal Message
-  const handleSaveVicePrincipal = (e: React.FormEvent) => {
+  const handleSaveVicePrincipal = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateVicePrincipalMessage(vicePrincipalForm);
-    setIsVicePrincipalDirty(false);
-    setVicePrincipalSavedToast(true);
-    setTimeout(() => setVicePrincipalSavedToast(false), 3500);
+    setIsSavingVicePrincipal(true);
+    try {
+      await updateVicePrincipalMessage(vicePrincipalForm);
+      setIsVicePrincipalDirty(false);
+      setVicePrincipalSavedToast(true);
+      setTimeout(() => setVicePrincipalSavedToast(false), 3500);
+    } catch (err) {
+      console.error('Failed to save vice-principal message:', err);
+    } finally {
+      setIsSavingVicePrincipal(false);
+    }
   };
 
   return (
@@ -439,9 +459,10 @@ export const HomeTab: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 if (confirm('Reset Principal message to factory default values?')) {
-                  resetPrincipalMessage();
+                  await resetPrincipalMessage();
+                  setIsPrincipalDirty(false);
                 }
               }}
               className="japandi-btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
@@ -471,7 +492,10 @@ export const HomeTab: React.FC = () => {
                     required
                     placeholder="e.g. Professor Dr. Shikha Sarkar"
                     value={principalForm.name}
-                    onChange={(e) => setPrincipalForm({ ...principalForm, name: e.target.value })}
+                    onChange={(e) => {
+                      setPrincipalForm({ ...principalForm, name: e.target.value });
+                      setIsPrincipalDirty(true);
+                    }}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-bold"
                   />
                 </div>
@@ -485,7 +509,10 @@ export const HomeTab: React.FC = () => {
                     required
                     placeholder="e.g. Principal"
                     value={principalForm.designation}
-                    onChange={(e) => setPrincipalForm({ ...principalForm, designation: e.target.value })}
+                    onChange={(e) => {
+                      setPrincipalForm({ ...principalForm, designation: e.target.value });
+                      setIsPrincipalDirty(true);
+                    }}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
                   />
                 </div>
@@ -501,7 +528,10 @@ export const HomeTab: React.FC = () => {
                     required
                     placeholder="e.g. New Govt. Degree College, Rajshahi"
                     value={principalForm.subDesignation}
-                    onChange={(e) => setPrincipalForm({ ...principalForm, subDesignation: e.target.value })}
+                    onChange={(e) => {
+                      setPrincipalForm({ ...principalForm, subDesignation: e.target.value });
+                      setIsPrincipalDirty(true);
+                    }}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
                   />
                 </div>
@@ -514,24 +544,52 @@ export const HomeTab: React.FC = () => {
                     type="text"
                     placeholder="e.g. Patron & Leadership"
                     value={principalForm.badge || ''}
-                    onChange={(e) => setPrincipalForm({ ...principalForm, badge: e.target.value })}
+                    onChange={(e) => {
+                      setPrincipalForm({ ...principalForm, badge: e.target.value });
+                      setIsPrincipalDirty(true);
+                    }}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
                   />
                 </div>
               </div>
 
-              {/* Photo Upload with Cloudinary */}
-              <div>
+              {/* Photo Upload with Cloudinary & Direct URL Fallback */}
+              <div className="space-y-2">
                 <CloudinaryUploader
                   value={principalForm.photoUrl}
                   onChange={(url) => {
                     setPrincipalForm((prev) => ({ ...prev, photoUrl: url }));
                     setIsPrincipalDirty(true);
                   }}
-                  label="Principal's Portrait"
-                  helperText="Compressed client-side and served via fast Cloudinary CDN."
+                  label="Principal's Portrait (Cloudinary CDN)"
+                  helperText="Upload image to Cloudinary CDN with automatic client-side compression."
                   aspectRatio="square"
                 />
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder="Or paste direct image URL (https://...)"
+                      value={principalForm.photoUrl}
+                      onChange={(e) => {
+                        setPrincipalForm((prev) => ({ ...prev, photoUrl: e.target.value }));
+                        setIsPrincipalDirty(true);
+                      }}
+                      className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] pl-8 pr-3 py-2 rounded-xl text-xs text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
+                    />
+                    <Link2 className="w-3.5 h-3.5 text-[#7c7767] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  </div>
+                  <label className="cursor-pointer px-3 py-2 rounded-xl bg-[#efeae0] dark:bg-[#26241e] hover:bg-[#e4ddce] text-xs font-semibold text-[#1c1c18] dark:text-[#fcfbf7] border border-[#cdc6b3] dark:border-[#423e35] whitespace-nowrap flex items-center gap-1.5">
+                    <UploadCloud className="w-3.5 h-3.5 text-[#6b5e10] dark:text-[#eedc82]" />
+                    <span>Browse</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePrincipalPhotoUpload}
+                    />
+                  </label>
+                </div>
               </div>
 
               {/* Highlighted Quote */}
@@ -544,7 +602,10 @@ export const HomeTab: React.FC = () => {
                   required
                   placeholder="Enter inspiring quote or keynote..."
                   value={principalForm.quote}
-                  onChange={(e) => setPrincipalForm({ ...principalForm, quote: e.target.value })}
+                  onChange={(e) => {
+                    setPrincipalForm({ ...principalForm, quote: e.target.value });
+                    setIsPrincipalDirty(true);
+                  }}
                   className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none italic leading-relaxed"
                 />
               </div>
@@ -559,7 +620,10 @@ export const HomeTab: React.FC = () => {
                   required
                   placeholder="Enter detailed message from the Principal..."
                   value={principalForm.message}
-                  onChange={(e) => setPrincipalForm({ ...principalForm, message: e.target.value })}
+                  onChange={(e) => {
+                    setPrincipalForm({ ...principalForm, message: e.target.value });
+                    setIsPrincipalDirty(true);
+                  }}
                   className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none leading-relaxed resize-y"
                 />
               </div>
@@ -570,7 +634,10 @@ export const HomeTab: React.FC = () => {
                   type="checkbox"
                   id="principalEnabled"
                   checked={principalForm.enabled !== false}
-                  onChange={(e) => setPrincipalForm({ ...principalForm, enabled: e.target.checked })}
+                  onChange={(e) => {
+                    setPrincipalForm({ ...principalForm, enabled: e.target.checked });
+                    setIsPrincipalDirty(true);
+                  }}
                   className="rounded text-[#6b5e10]"
                 />
                 <label htmlFor="principalEnabled" className="text-xs font-semibold text-[#1c1c18] dark:text-[#fcfbf7] cursor-pointer">
@@ -581,10 +648,20 @@ export const HomeTab: React.FC = () => {
               <div className="pt-3 border-t border-[#cdc6b3]/50 dark:border-[#423e35] flex items-center justify-end gap-3">
                 <button
                   type="submit"
-                  className="japandi-btn-primary text-xs py-2.5 px-6 font-bold flex items-center gap-2 cursor-pointer"
+                  disabled={isSavingPrincipal}
+                  className="japandi-btn-primary text-xs py-2.5 px-6 font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>Save Principal Message</span>
+                  {isSavingPrincipal ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving to Database...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Save Principal Message</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -661,9 +738,10 @@ export const HomeTab: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 if (confirm('Reset Vice-Principal message to factory default values?')) {
-                  resetVicePrincipalMessage();
+                  await resetVicePrincipalMessage();
+                  setIsVicePrincipalDirty(false);
                 }
               }}
               className="japandi-btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
@@ -693,7 +771,10 @@ export const HomeTab: React.FC = () => {
                     required
                     placeholder="e.g. Professor Md. Motiur Rahman"
                     value={vicePrincipalForm.name}
-                    onChange={(e) => setVicePrincipalForm({ ...vicePrincipalForm, name: e.target.value })}
+                    onChange={(e) => {
+                      setVicePrincipalForm({ ...vicePrincipalForm, name: e.target.value });
+                      setIsVicePrincipalDirty(true);
+                    }}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-bold"
                   />
                 </div>
@@ -707,7 +788,10 @@ export const HomeTab: React.FC = () => {
                     required
                     placeholder="e.g. Vice-Principal"
                     value={vicePrincipalForm.designation}
-                    onChange={(e) => setVicePrincipalForm({ ...vicePrincipalForm, designation: e.target.value })}
+                    onChange={(e) => {
+                      setVicePrincipalForm({ ...vicePrincipalForm, designation: e.target.value });
+                      setIsVicePrincipalDirty(true);
+                    }}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
                   />
                 </div>
@@ -723,7 +807,10 @@ export const HomeTab: React.FC = () => {
                     required
                     placeholder="e.g. New Govt. Degree College, Rajshahi"
                     value={vicePrincipalForm.subDesignation}
-                    onChange={(e) => setVicePrincipalForm({ ...vicePrincipalForm, subDesignation: e.target.value })}
+                    onChange={(e) => {
+                      setVicePrincipalForm({ ...vicePrincipalForm, subDesignation: e.target.value });
+                      setIsVicePrincipalDirty(true);
+                    }}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
                   />
                 </div>
@@ -736,24 +823,52 @@ export const HomeTab: React.FC = () => {
                     type="text"
                     placeholder="e.g. Vice-Patron & Leadership"
                     value={vicePrincipalForm.badge || ''}
-                    onChange={(e) => setVicePrincipalForm({ ...vicePrincipalForm, badge: e.target.value })}
+                    onChange={(e) => {
+                      setVicePrincipalForm({ ...vicePrincipalForm, badge: e.target.value });
+                      setIsVicePrincipalDirty(true);
+                    }}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
                   />
                 </div>
               </div>
 
-              {/* Photo Upload with Cloudinary */}
-              <div>
+              {/* Photo Upload with Cloudinary & Direct URL Fallback */}
+              <div className="space-y-2">
                 <CloudinaryUploader
                   value={vicePrincipalForm.photoUrl}
                   onChange={(url) => {
                     setVicePrincipalForm((prev) => ({ ...prev, photoUrl: url }));
                     setIsVicePrincipalDirty(true);
                   }}
-                  label="Vice-Principal's Portrait"
-                  helperText="Compressed client-side and served via fast Cloudinary CDN."
+                  label="Vice-Principal's Portrait (Cloudinary CDN)"
+                  helperText="Upload image to Cloudinary CDN with automatic client-side compression."
                   aspectRatio="square"
                 />
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder="Or paste direct image URL (https://...)"
+                      value={vicePrincipalForm.photoUrl}
+                      onChange={(e) => {
+                        setVicePrincipalForm((prev) => ({ ...prev, photoUrl: e.target.value }));
+                        setIsVicePrincipalDirty(true);
+                      }}
+                      className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] pl-8 pr-3 py-2 rounded-xl text-xs text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
+                    />
+                    <Link2 className="w-3.5 h-3.5 text-[#7c7767] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  </div>
+                  <label className="cursor-pointer px-3 py-2 rounded-xl bg-[#efeae0] dark:bg-[#26241e] hover:bg-[#e4ddce] text-xs font-semibold text-[#1c1c18] dark:text-[#fcfbf7] border border-[#cdc6b3] dark:border-[#423e35] whitespace-nowrap flex items-center gap-1.5">
+                    <UploadCloud className="w-3.5 h-3.5 text-[#6b5e10] dark:text-[#eedc82]" />
+                    <span>Browse</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleVicePrincipalPhotoUpload}
+                    />
+                  </label>
+                </div>
               </div>
 
               {/* Highlighted Quote */}
@@ -766,7 +881,10 @@ export const HomeTab: React.FC = () => {
                   required
                   placeholder="Enter inspiring quote or keynote..."
                   value={vicePrincipalForm.quote}
-                  onChange={(e) => setVicePrincipalForm({ ...vicePrincipalForm, quote: e.target.value })}
+                  onChange={(e) => {
+                    setVicePrincipalForm({ ...vicePrincipalForm, quote: e.target.value });
+                    setIsVicePrincipalDirty(true);
+                  }}
                   className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none italic leading-relaxed"
                 />
               </div>
@@ -781,7 +899,10 @@ export const HomeTab: React.FC = () => {
                   required
                   placeholder="Enter detailed message from the Vice-Principal..."
                   value={vicePrincipalForm.message}
-                  onChange={(e) => setVicePrincipalForm({ ...vicePrincipalForm, message: e.target.value })}
+                  onChange={(e) => {
+                    setVicePrincipalForm({ ...vicePrincipalForm, message: e.target.value });
+                    setIsVicePrincipalDirty(true);
+                  }}
                   className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none leading-relaxed resize-y"
                 />
               </div>
@@ -792,7 +913,10 @@ export const HomeTab: React.FC = () => {
                   type="checkbox"
                   id="vicePrincipalEnabled"
                   checked={vicePrincipalForm.enabled !== false}
-                  onChange={(e) => setVicePrincipalForm({ ...vicePrincipalForm, enabled: e.target.checked })}
+                  onChange={(e) => {
+                    setVicePrincipalForm({ ...vicePrincipalForm, enabled: e.target.checked });
+                    setIsVicePrincipalDirty(true);
+                  }}
                   className="rounded text-[#6b5e10]"
                 />
                 <label htmlFor="vicePrincipalEnabled" className="text-xs font-semibold text-[#1c1c18] dark:text-[#fcfbf7] cursor-pointer">
@@ -803,10 +927,20 @@ export const HomeTab: React.FC = () => {
               <div className="pt-3 border-t border-[#cdc6b3]/50 dark:border-[#423e35] flex items-center justify-end gap-3">
                 <button
                   type="submit"
-                  className="japandi-btn-primary text-xs py-2.5 px-6 font-bold flex items-center gap-2 cursor-pointer"
+                  disabled={isSavingVicePrincipal}
+                  className="japandi-btn-primary text-xs py-2.5 px-6 font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>Save Vice-Principal Message</span>
+                  {isSavingVicePrincipal ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving to Database...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Save Vice-Principal Message</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
 import { TabType, NoticeItem, BlogItem, MemoryItem } from '../types';
 import { ASSETS, NOTICES_DATA, BLOGS_DATA, MEMORIES_DATA, HERO_SLIDES_DATA } from '../data/bnccData';
-import { useAdminData, DEFAULT_ABOUT_OVERVIEW } from '../context/AdminDataContext';
+import { useAdminData, DEFAULT_ABOUT_OVERVIEW, DEFAULT_PRINCIPAL_MESSAGE, DEFAULT_VICE_PRINCIPAL_MESSAGE } from '../context/AdminDataContext';
 import { getOptimizedImageUrl } from '../utils/cloudinary';
 import { 
   Megaphone, 
@@ -352,8 +352,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <div className="relative group">
                 <div className="w-44 h-44 sm:w-48 sm:h-48 md:w-52 md:h-52 rounded-full overflow-hidden border-4 border-[#cdc6b3] dark:border-[#464237] ring-4 ring-[#eedc82]/30 shadow-md bg-[#eae4d5] dark:bg-[#25231c]">
                   <img
-                    src={principalMessage?.photoUrl}
+                    src={principalMessage?.photoUrl || DEFAULT_PRINCIPAL_MESSAGE.photoUrl}
                     alt={principalMessage?.name || 'Principal'}
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (target.src !== DEFAULT_PRINCIPAL_MESSAGE.photoUrl) {
+                        target.src = DEFAULT_PRINCIPAL_MESSAGE.photoUrl;
+                      }
+                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                     referrerPolicy="no-referrer"
                   />
@@ -389,7 +395,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#eedc82]/40 dark:bg-[#eedc82]/20 rounded-full text-xs font-bold text-[#6b5e10] dark:text-[#eedc82] uppercase tracking-wider">
                 <GraduationCap className="w-3.5 h-3.5" />
-                <span>Patron & Leadership</span>
+                <span>{principalMessage?.badge || 'Patron & Leadership'}</span>
               </div>
 
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#1c1c18] dark:text-[#fcfbf7] tracking-tight">
@@ -434,8 +440,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <div className="relative group">
                 <div className="w-44 h-44 sm:w-48 sm:h-48 md:w-52 md:h-52 rounded-full overflow-hidden border-4 border-[#cdc6b3] dark:border-[#464237] ring-4 ring-[#eedc82]/30 shadow-md bg-[#eae4d5] dark:bg-[#25231c]">
                   <img
-                    src={vicePrincipalMessage?.photoUrl}
+                    src={vicePrincipalMessage?.photoUrl || DEFAULT_VICE_PRINCIPAL_MESSAGE.photoUrl}
                     alt={vicePrincipalMessage?.name || 'Vice-Principal'}
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (target.src !== DEFAULT_VICE_PRINCIPAL_MESSAGE.photoUrl) {
+                        target.src = DEFAULT_VICE_PRINCIPAL_MESSAGE.photoUrl;
+                      }
+                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                     referrerPolicy="no-referrer"
                   />
@@ -471,7 +483,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#eedc82]/40 dark:bg-[#eedc82]/20 rounded-full text-xs font-bold text-[#6b5e10] dark:text-[#eedc82] uppercase tracking-wider">
                 <Award className="w-3.5 h-3.5" />
-                <span>Vice-Patron & Leadership</span>
+                <span>{vicePrincipalMessage?.badge || 'Vice-Patron & Leadership'}</span>
               </div>
 
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#1c1c18] dark:text-[#fcfbf7] tracking-tight">

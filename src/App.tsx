@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronUp } from 'lucide-react';
 import { TabType, NoticeItem, BlogItem, MemoryItem } from './types';
@@ -33,23 +34,27 @@ import {
 } from './components/Modals';
 
 export default function App() {
-  const { activeTab, setActiveTab, selectedNotice, setSelectedNotice, selectedBlog, setSelectedBlog, selectedMemory, setSelectedMemory } = useAppStore(state => ({
-    activeTab: state.activeTab,
-    setActiveTab: state.setActiveTab,
-    selectedNotice: state.selectedNotice,
-    setSelectedNotice: state.setSelectedNotice,
-    selectedBlog: state.selectedBlog,
-    setSelectedBlog: state.setSelectedBlog,
-    selectedMemory: state.selectedMemory,
-    setSelectedMemory: state.setSelectedMemory,
-  }));
+  const { activeTab, setActiveTab, selectedNotice, setSelectedNotice, selectedBlog, setSelectedBlog, selectedMemory, setSelectedMemory } = useAppStore(
+    useShallow(state => ({
+      activeTab: state.activeTab,
+      setActiveTab: state.setActiveTab,
+      selectedNotice: state.selectedNotice,
+      setSelectedNotice: state.setSelectedNotice,
+      selectedBlog: state.selectedBlog,
+      setSelectedBlog: state.setSelectedBlog,
+      selectedMemory: state.selectedMemory,
+      setSelectedMemory: state.setSelectedMemory,
+    }))
+  );
 
   // Admin authentication state from store
-  const { isAdminAuthenticated, setIsAdminAuthenticated, validateAdminToken } = useAppStore(state => ({
-    isAdminAuthenticated: state.isAdminAuthenticated,
-    setIsAdminAuthenticated: state.setIsAdminAuthenticated,
-    validateAdminToken: state.validateAdminToken,
-  }));
+  const { isAdminAuthenticated, setIsAdminAuthenticated, validateAdminToken } = useAppStore(
+    useShallow(state => ({
+      isAdminAuthenticated: state.isAdminAuthenticated,
+      setIsAdminAuthenticated: state.setIsAdminAuthenticated,
+      validateAdminToken: state.validateAdminToken,
+    }))
+  );
 
   // Default light theme (dark mode button removed)
   const isDarkMode = false;
@@ -64,20 +69,22 @@ export default function App() {
   }, []);
 
   // Modals state from store
-  const { isJoinModalOpen, setJoinModalOpen, isCadetAuthOpen, setCadetAuthOpen, isUniformModalOpen, setUniformModalOpen, isAdminLoginOpen, setAdminLoginOpen, showLegalModal, setShowLegalModal, showBackToTop, setShowBackToTop } = useAppStore(state => ({
-    isJoinModalOpen: state.isJoinModalOpen,
-    setJoinModalOpen: state.setJoinModalOpen,
-    isCadetAuthOpen: state.isCadetAuthOpen,
-    setCadetAuthOpen: state.setCadetAuthOpen,
-    isUniformModalOpen: state.isUniformModalOpen,
-    setUniformModalOpen: state.setUniformModalOpen,
-    isAdminLoginOpen: state.isAdminLoginOpen,
-    setAdminLoginOpen: state.setAdminLoginOpen,
-    showLegalModal: state.showLegalModal,
-    setShowLegalModal: state.setShowLegalModal,
-    showBackToTop: state.showBackToTop,
-    setShowBackToTop: state.setShowBackToTop,
-  }));
+  const { isJoinModalOpen, setJoinModalOpen, isCadetAuthOpen, setCadetAuthOpen, isUniformModalOpen, setUniformModalOpen, isAdminLoginOpen, setAdminLoginOpen, showLegalModal, setShowLegalModal, showBackToTop, setShowBackToTop } = useAppStore(
+    useShallow(state => ({
+      isJoinModalOpen: state.isJoinModalOpen,
+      setJoinModalOpen: state.setJoinModalOpen,
+      isCadetAuthOpen: state.isCadetAuthOpen,
+      setCadetAuthOpen: state.setCadetAuthOpen,
+      isUniformModalOpen: state.isUniformModalOpen,
+      setUniformModalOpen: state.setUniformModalOpen,
+      isAdminLoginOpen: state.isAdminLoginOpen,
+      setAdminLoginOpen: state.setAdminLoginOpen,
+      showLegalModal: state.showLegalModal,
+      setShowLegalModal: state.setShowLegalModal,
+      showBackToTop: state.showBackToTop,
+      setShowBackToTop: state.setShowBackToTop,
+    }))
+  );
   const [cadetAuthMode, setCadetAuthMode] = useState<'login' | 'register'>('login');
 
   // Monitor scroll for back-to-top floating button (updates store)

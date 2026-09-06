@@ -555,11 +555,11 @@ interface AdminDataContextType {
   updateHeroSlide: (id: string, slide: Partial<HeroSlide>) => void;
   deleteHeroSlide: (id: string) => void;
   principalMessage: ExecutiveMessageConfig;
-  updatePrincipalMessage: (config: Partial<ExecutiveMessageConfig>) => void;
-  resetPrincipalMessage: () => void;
+  updatePrincipalMessage: (config: Partial<ExecutiveMessageConfig>) => Promise<boolean> | void;
+  resetPrincipalMessage: () => Promise<boolean> | void;
   vicePrincipalMessage: ExecutiveMessageConfig;
-  updateVicePrincipalMessage: (config: Partial<ExecutiveMessageConfig>) => void;
-  resetVicePrincipalMessage: () => void;
+  updateVicePrincipalMessage: (config: Partial<ExecutiveMessageConfig>) => Promise<boolean> | void;
+  resetVicePrincipalMessage: () => Promise<boolean> | void;
 
   // 2. About Us - Overview, Messages & Rank Hierarchy
   aboutOverview: AboutOverviewConfig;
@@ -733,10 +733,41 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   };
 
+  // Safe ExecutiveMessage parser - guarantees all required fields and fallback values exist
+  const parseExecutiveMessage = (val: any, defaultVal: ExecutiveMessageConfig): ExecutiveMessageConfig => {
+    if (!val) return { ...defaultVal };
+    let parsed = val;
+    if (typeof val === 'string') {
+      try {
+        parsed = JSON.parse(val);
+      } catch {
+        return { ...defaultVal };
+      }
+    }
+    if (!parsed || typeof parsed !== 'object') return { ...defaultVal };
+    return {
+      name: typeof parsed.name === 'string' && parsed.name ? parsed.name : defaultVal.name,
+      designation: typeof parsed.designation === 'string' && parsed.designation ? parsed.designation : defaultVal.designation,
+      subDesignation: typeof parsed.subDesignation === 'string' ? parsed.subDesignation : defaultVal.subDesignation,
+      badge: typeof parsed.badge === 'string' ? parsed.badge : (defaultVal.badge || ''),
+      quote: typeof parsed.quote === 'string' ? parsed.quote : defaultVal.quote,
+      message: typeof parsed.message === 'string' ? parsed.message : defaultVal.message,
+      photoUrl: typeof parsed.photoUrl === 'string' && parsed.photoUrl ? parsed.photoUrl : defaultVal.photoUrl,
+      enabled: parsed.enabled !== undefined ? Boolean(parsed.enabled) : (defaultVal.enabled !== false),
+    };
+  };
+
   // Timestamp tracker for local writes to prevent broadcast echo loops from overwriting active admin edits
   const lastLocalWriteTimestamps = useRef<Record<string, number>>({});
   const saveSettingWithTimestamp = (key: string, value: any) => {
     lastLocalWriteTimestamps.current[key] = Date.now();
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+      } catch (e) {
+        console.warn('localStorage save failed:', e);
+      }
+    }
     upsertSiteSetting(key, value);
   };
 
@@ -750,8 +781,8 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // Use plain setters here (NOT ...AndSave) so we do NOT write back to Supabase on load
         if (settings['ngdc_admin_service_pin']) setServicePin(settings['ngdc_admin_service_pin']);
         if (settings['ngdc_hero_slides']) setHeroSlides(parseArray(settings['ngdc_hero_slides']));
-        if (settings['ngdc_principal_message']) setPrincipalMessage(settings['ngdc_principal_message']);
-        if (settings['ngdc_vice_principal_message']) setVicePrincipalMessage(settings['ngdc_vice_principal_message']);
+        if (settings['ngdc_principal_message']) setPrincipalMessage(parseExecutiveMessage(settings['ngdc_principal_message'], DEFAULT_PRINCIPAL_MESSAGE));
+        if (settings['ngdc_vice_principal_message']) setVicePrincipalMessage(parseExecutiveMessage(settings['ngdc_vice_principal_message'], DEFAULT_VICE_PRINCIPAL_MESSAGE));
         if (settings['ngdc_about_overview']) setAboutOverview(parseAboutOverview(settings['ngdc_about_overview']));
         if (settings['ngdc_bncco1_message']) setBncco1Message(settings['ngdc_bncco1_message']);
         if (settings['ngdc_bncco2_message']) setBncco2Message(settings['ngdc_bncco2_message']);
@@ -791,8 +822,8 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
         
         if (key === 'ngdc_hero_slides') setHeroSlides(parseArray(val));
-        else if (key === 'ngdc_principal_message') setPrincipalMessage(val);
-        else if (key === 'ngdc_vice_principal_message') setVicePrincipalMessage(val);
+        else if (key === 'ngdc_principal_message') setPrincipalMessage(parseExecutiveMessage(val, DEFAULT_PRINCIPAL_MESSAGE));
+        else if (key === 'ngdc_vice_principal_message') setVicePrincipalMessage(parseExecutiveMessage(val, DEFAULT_VICE_PRINCIPAL_MESSAGE));
         else if (key === 'ngdc_about_overview') setAboutOverview(parseAboutOverview(val));
         else if (key === 'ngdc_bncco1_message') setBncco1Message(val);
         else if (key === 'ngdc_bncco2_message') setBncco2Message(val);
@@ -892,16 +923,18 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const setPrincipalMessageAndSave = (val: any) => {
     setPrincipalMessage((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
-      saveSettingWithTimestamp('ngdc_principal_message', next);
-      return next;
+      const safe = parseExecutiveMessage(next, DEFAULT_PRINCIPAL_MESSAGE);
+      saveSettingWithTimestamp('ngdc_principal_message', safe);
+      return safe;
     });
   };
 
   const setVicePrincipalMessageAndSave = (val: any) => {
     setVicePrincipalMessage((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
-      saveSettingWithTimestamp('ngdc_vice_principal_message', next);
-      return next;
+      const safe = parseExecutiveMessage(next, DEFAULT_VICE_PRINCIPAL_MESSAGE);
+      saveSettingWithTimestamp('ngdc_vice_principal_message', safe);
+      return safe;
     });
   };
 
@@ -1118,42 +1151,60 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 1.1 Executive Messages (Principal & Vice-Principal) ---
   const [principalMessage, setPrincipalMessage] = useState<ExecutiveMessageConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
-      if (saved) {
-        try {
-          return { ...DEFAULT_PRINCIPAL_MESSAGE, ...JSON.parse(saved) };
-        } catch {}
-      }
+      try {
+        const saved = localStorage.getItem('ngdc_principal_message');
+        if (saved) {
+          return parseExecutiveMessage(saved, DEFAULT_PRINCIPAL_MESSAGE);
+        }
+      } catch {}
     }
     return DEFAULT_PRINCIPAL_MESSAGE;
   });
 
-  const updatePrincipalMessage = (config: Partial<ExecutiveMessageConfig>) => {
-    setPrincipalMessageAndSave((prev) => ({ ...prev, ...config }));
+  const updatePrincipalMessage = async (config: Partial<ExecutiveMessageConfig>): Promise<boolean> => {
+    let nextValue: ExecutiveMessageConfig = DEFAULT_PRINCIPAL_MESSAGE;
+    setPrincipalMessage((prev) => {
+      const merged = { ...prev, ...config };
+      nextValue = parseExecutiveMessage(merged, DEFAULT_PRINCIPAL_MESSAGE);
+      saveSettingWithTimestamp('ngdc_principal_message', nextValue);
+      return nextValue;
+    });
+    return await upsertSiteSetting('ngdc_principal_message', nextValue);
   };
 
-  const resetPrincipalMessage = () => {
-    setPrincipalMessageAndSave(DEFAULT_PRINCIPAL_MESSAGE);
+  const resetPrincipalMessage = async (): Promise<boolean> => {
+    setPrincipalMessage(DEFAULT_PRINCIPAL_MESSAGE);
+    saveSettingWithTimestamp('ngdc_principal_message', DEFAULT_PRINCIPAL_MESSAGE);
+    return await upsertSiteSetting('ngdc_principal_message', DEFAULT_PRINCIPAL_MESSAGE);
   };
 
   const [vicePrincipalMessage, setVicePrincipalMessage] = useState<ExecutiveMessageConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
-      if (saved) {
-        try {
-          return { ...DEFAULT_VICE_PRINCIPAL_MESSAGE, ...JSON.parse(saved) };
-        } catch {}
-      }
+      try {
+        const saved = localStorage.getItem('ngdc_vice_principal_message');
+        if (saved) {
+          return parseExecutiveMessage(saved, DEFAULT_VICE_PRINCIPAL_MESSAGE);
+        }
+      } catch {}
     }
     return DEFAULT_VICE_PRINCIPAL_MESSAGE;
   });
 
-  const updateVicePrincipalMessage = (config: Partial<ExecutiveMessageConfig>) => {
-    setVicePrincipalMessageAndSave((prev) => ({ ...prev, ...config }));
+  const updateVicePrincipalMessage = async (config: Partial<ExecutiveMessageConfig>): Promise<boolean> => {
+    let nextValue: ExecutiveMessageConfig = DEFAULT_VICE_PRINCIPAL_MESSAGE;
+    setVicePrincipalMessage((prev) => {
+      const merged = { ...prev, ...config };
+      nextValue = parseExecutiveMessage(merged, DEFAULT_VICE_PRINCIPAL_MESSAGE);
+      saveSettingWithTimestamp('ngdc_vice_principal_message', nextValue);
+      return nextValue;
+    });
+    return await upsertSiteSetting('ngdc_vice_principal_message', nextValue);
   };
 
-  const resetVicePrincipalMessage = () => {
-    setVicePrincipalMessageAndSave(DEFAULT_VICE_PRINCIPAL_MESSAGE);
+  const resetVicePrincipalMessage = async (): Promise<boolean> => {
+    setVicePrincipalMessage(DEFAULT_VICE_PRINCIPAL_MESSAGE);
+    saveSettingWithTimestamp('ngdc_vice_principal_message', DEFAULT_VICE_PRINCIPAL_MESSAGE);
+    return await upsertSiteSetting('ngdc_vice_principal_message', DEFAULT_VICE_PRINCIPAL_MESSAGE);
   };
 
   // --- 2. About Us - Overview, Messages & Rank Hierarchy ---
