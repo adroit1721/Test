@@ -704,12 +704,15 @@ interface AdminDataContextType {
 const AdminDataContext = createContext<AdminDataContextType | undefined>(undefined);
 
 export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Safe array parser - handles JSON strings, arrays, and null values from Supabase
+  // Safe array parser - handles JSON strings, double-stringified JSON, arrays, and null values
   const parseArray = (val: any): any[] => {
     if (Array.isArray(val)) return val;
     if (typeof val === 'string') {
       try {
-        const parsed = JSON.parse(val);
+        let parsed = JSON.parse(val);
+        if (typeof parsed === 'string') {
+          try { parsed = JSON.parse(parsed); } catch {}
+        }
         return Array.isArray(parsed) ? parsed : [];
       } catch {
         return [];
@@ -718,12 +721,37 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return [];
   };
 
+  // Safe generic object parser - handles objects, strings, and fallback defaults
+  const parseObject = <T,>(val: any, defaultVal: T): T => {
+    if (!val) return defaultVal;
+    let parsed = val;
+    if (typeof val === 'string') {
+      try {
+        parsed = JSON.parse(val);
+        if (typeof parsed === 'string') {
+          try { parsed = JSON.parse(parsed); } catch {}
+        }
+      } catch {
+        return defaultVal;
+      }
+    }
+    if (!parsed || typeof parsed !== 'object') return defaultVal;
+    return { ...defaultVal, ...parsed };
+  };
+
   // Safe AboutOverview parser - guarantees all required fields and string content exist
   const parseAboutOverview = (val: any): AboutOverviewConfig => {
     if (!val) return DEFAULT_ABOUT_OVERVIEW;
     let parsed = val;
     if (typeof val === 'string') {
-      try { parsed = JSON.parse(val); } catch { return DEFAULT_ABOUT_OVERVIEW; }
+      try {
+        parsed = JSON.parse(val);
+        if (typeof parsed === 'string') {
+          try { parsed = JSON.parse(parsed); } catch {}
+        }
+      } catch {
+        return DEFAULT_ABOUT_OVERVIEW;
+      }
     }
     if (!parsed || typeof parsed !== 'object') return DEFAULT_ABOUT_OVERVIEW;
     return {
@@ -740,6 +768,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (typeof val === 'string') {
       try {
         parsed = JSON.parse(val);
+        if (typeof parsed === 'string') {
+          try { parsed = JSON.parse(parsed); } catch {}
+        }
       } catch {
         return { ...defaultVal };
       }
@@ -768,7 +799,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         console.warn('localStorage save failed:', e);
       }
     }
-    upsertSiteSetting(key, value);
+    return upsertSiteSetting(key, value);
   };
 
   // --- Admin PIN (Default: 1721) ---
@@ -784,9 +815,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (settings['ngdc_principal_message']) setPrincipalMessage(parseExecutiveMessage(settings['ngdc_principal_message'], DEFAULT_PRINCIPAL_MESSAGE));
         if (settings['ngdc_vice_principal_message']) setVicePrincipalMessage(parseExecutiveMessage(settings['ngdc_vice_principal_message'], DEFAULT_VICE_PRINCIPAL_MESSAGE));
         if (settings['ngdc_about_overview']) setAboutOverview(parseAboutOverview(settings['ngdc_about_overview']));
-        if (settings['ngdc_bncco1_message']) setBncco1Message(settings['ngdc_bncco1_message']);
-        if (settings['ngdc_bncco2_message']) setBncco2Message(settings['ngdc_bncco2_message']);
-        if (settings['ngdc_platoon_commander_message']) setPlatoonCommanderMessage(settings['ngdc_platoon_commander_message']);
+        if (settings['ngdc_bncco1_message']) setBncco1Message(parseExecutiveMessage(settings['ngdc_bncco1_message'], DEFAULT_BNCCO1_MESSAGE));
+        if (settings['ngdc_bncco2_message']) setBncco2Message(parseExecutiveMessage(settings['ngdc_bncco2_message'], DEFAULT_BNCCO2_MESSAGE));
+        if (settings['ngdc_platoon_commander_message']) setPlatoonCommanderMessage(parseExecutiveMessage(settings['ngdc_platoon_commander_message'], DEFAULT_PLATOON_COMMANDER_MESSAGE));
         if (settings['ngdc_about_sections']) setAboutSections(parseArray(settings['ngdc_about_sections']));
         if (settings['ngdc_cadet_ranks']) setCadetRanks(parseArray(settings['ngdc_cadet_ranks']));
         if (settings['ngdc_trainings']) setTrainingAnnouncements(parseArray(settings['ngdc_trainings']));
@@ -797,15 +828,15 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (settings['ngdc_memories']) setMemories(parseArray(settings['ngdc_memories']));
         if (settings['ngdc_cadet_reg_fields']) setCadetRegFields(parseArray(settings['ngdc_cadet_reg_fields']));
         if (settings['ngdc_honor_entries_3cat']) setHonorEntries(parseArray(settings['ngdc_honor_entries_3cat']));
-        if (settings['ngdc_contact_config']) setContactConfig(settings['ngdc_contact_config']);
+        if (settings['ngdc_contact_config']) setContactConfig(parseObject(settings['ngdc_contact_config'], DEFAULT_CONTACT_CONFIG));
         if (settings['ngdc_contact_messages']) setContactMessages(parseArray(settings['ngdc_contact_messages']));
-        if (settings['ngdc_recruitment_open']) setIsRecruitmentOpen(settings['ngdc_recruitment_open'] === 'true');
-        if (settings['ngdc_recruitment_announcement']) setRecruitmentAnnouncement(settings['ngdc_recruitment_announcement']);
-        if (settings['ngdc_recruitment_title']) setRecruitmentNoticeTitle(settings['ngdc_recruitment_title']);
+        if (settings['ngdc_recruitment_open'] !== undefined) setIsRecruitmentOpen(settings['ngdc_recruitment_open'] === 'true' || settings['ngdc_recruitment_open'] === true);
+        if (settings['ngdc_recruitment_announcement']) setRecruitmentAnnouncement(parseObject(settings['ngdc_recruitment_announcement'], DEFAULT_RECRUITMENT_ANNOUNCEMENT));
+        if (settings['ngdc_recruitment_title']) setRecruitmentNoticeTitle(typeof settings['ngdc_recruitment_title'] === 'string' ? settings['ngdc_recruitment_title'] : String(settings['ngdc_recruitment_title']));
         if (settings['ngdc_recruitment_form_fields']) setRecruitmentFormFields(parseArray(settings['ngdc_recruitment_form_fields']));
         if (settings['ngdc_recruitment_applicants']) setRecruitmentApplicants(parseArray(settings['ngdc_recruitment_applicants']));
-        if (settings['ngdc_recruitment_signatories']) setRecruitmentSignatories(settings['ngdc_recruitment_signatories']);
-        if (settings['ngdc_footer_config']) setFooterConfig(settings['ngdc_footer_config']);
+        if (settings['ngdc_recruitment_signatories']) setRecruitmentSignatories(parseObject(settings['ngdc_recruitment_signatories'], DEFAULT_RECRUITMENT_SIGNATORIES));
+        if (settings['ngdc_footer_config']) setFooterConfig(parseObject(settings['ngdc_footer_config'], DEFAULT_FOOTER_CONFIG));
       }
     }
     loadSettings();
@@ -825,9 +856,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         else if (key === 'ngdc_principal_message') setPrincipalMessage(parseExecutiveMessage(val, DEFAULT_PRINCIPAL_MESSAGE));
         else if (key === 'ngdc_vice_principal_message') setVicePrincipalMessage(parseExecutiveMessage(val, DEFAULT_VICE_PRINCIPAL_MESSAGE));
         else if (key === 'ngdc_about_overview') setAboutOverview(parseAboutOverview(val));
-        else if (key === 'ngdc_bncco1_message') setBncco1Message(val);
-        else if (key === 'ngdc_bncco2_message') setBncco2Message(val);
-        else if (key === 'ngdc_platoon_commander_message') setPlatoonCommanderMessage(val);
+        else if (key === 'ngdc_bncco1_message') setBncco1Message(parseExecutiveMessage(val, DEFAULT_BNCCO1_MESSAGE));
+        else if (key === 'ngdc_bncco2_message') setBncco2Message(parseExecutiveMessage(val, DEFAULT_BNCCO2_MESSAGE));
+        else if (key === 'ngdc_platoon_commander_message') setPlatoonCommanderMessage(parseExecutiveMessage(val, DEFAULT_PLATOON_COMMANDER_MESSAGE));
         else if (key === 'ngdc_about_sections') setAboutSections(parseArray(val));
         else if (key === 'ngdc_cadet_ranks') setCadetRanks(parseArray(val));
         else if (key === 'ngdc_trainings') setTrainingAnnouncements(parseArray(val));
@@ -838,15 +869,15 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         else if (key === 'ngdc_memories') setMemories(parseArray(val));
         else if (key === 'ngdc_cadet_reg_fields') setCadetRegFields(parseArray(val));
         else if (key === 'ngdc_honor_entries_3cat') setHonorEntries(parseArray(val));
-        else if (key === 'ngdc_contact_config') setContactConfig(val);
+        else if (key === 'ngdc_contact_config') setContactConfig(parseObject(val, DEFAULT_CONTACT_CONFIG));
         else if (key === 'ngdc_contact_messages') setContactMessages(parseArray(val));
-        else if (key === 'ngdc_recruitment_open') setIsRecruitmentOpen(val === 'true');
-        else if (key === 'ngdc_recruitment_announcement') setRecruitmentAnnouncement(val);
-        else if (key === 'ngdc_recruitment_title') setRecruitmentNoticeTitle(val);
+        else if (key === 'ngdc_recruitment_open') setIsRecruitmentOpen(val === 'true' || val === true);
+        else if (key === 'ngdc_recruitment_announcement') setRecruitmentAnnouncement(parseObject(val, DEFAULT_RECRUITMENT_ANNOUNCEMENT));
+        else if (key === 'ngdc_recruitment_title') setRecruitmentNoticeTitle(typeof val === 'string' ? val : String(val));
         else if (key === 'ngdc_recruitment_form_fields') setRecruitmentFormFields(parseArray(val));
         else if (key === 'ngdc_recruitment_applicants') setRecruitmentApplicants(parseArray(val));
-        else if (key === 'ngdc_recruitment_signatories') setRecruitmentSignatories(val);
-        else if (key === 'ngdc_footer_config') setFooterConfig(val);
+        else if (key === 'ngdc_recruitment_signatories') setRecruitmentSignatories(parseObject(val, DEFAULT_RECRUITMENT_SIGNATORIES));
+        else if (key === 'ngdc_footer_config') setFooterConfig(parseObject(val, DEFAULT_FOOTER_CONFIG));
       }
     });
 
@@ -855,7 +886,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [servicePin, setServicePin] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_admin_service_pin');
       if (saved) return saved;
     }
     return '1721';
@@ -903,9 +934,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 1. Home Hero Slides ---
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_hero_slides');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        const arr = parseArray(saved);
+        if (arr.length > 0) return arr;
       }
     }
     return HERO_SLIDES_DATA.map((s) => ({ ...s, isActive: true }));
@@ -1210,9 +1242,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 2. About Us - Overview, Messages & Rank Hierarchy ---
   const [aboutOverview, setAboutOverview] = useState<AboutOverviewConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_about_overview');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        return parseAboutOverview(saved);
       }
     }
     return DEFAULT_ABOUT_OVERVIEW;
@@ -1228,9 +1260,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [bncco1Message, setBncco1Message] = useState<ExecutiveMessageConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_bncco1_message');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        return parseExecutiveMessage(saved, DEFAULT_BNCCO1_MESSAGE);
       }
     }
     return DEFAULT_BNCCO1_MESSAGE;
@@ -1246,9 +1278,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [bncco2Message, setBncco2Message] = useState<ExecutiveMessageConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_bncco2_message');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        return parseExecutiveMessage(saved, DEFAULT_BNCCO2_MESSAGE);
       }
     }
     return DEFAULT_BNCCO2_MESSAGE;
@@ -1264,9 +1296,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [platoonCommanderMessage, setPlatoonCommanderMessage] = useState<ExecutiveMessageConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_platoon_commander_message');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        return parseExecutiveMessage(saved, DEFAULT_PLATOON_COMMANDER_MESSAGE);
       }
     }
     return DEFAULT_PLATOON_COMMANDER_MESSAGE;
@@ -1282,21 +1314,19 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [aboutSections, setAboutSections] = useState<CustomAboutSection[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_about_sections');
       if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            // Filter out legacy "Historical Legacy" and "Code of Honor" sections
-            return parsed.filter(
-              (s: any) =>
-                s.id !== 'abt-sec-1' &&
-                s.id !== 'abt-sec-2' &&
-                s.badge !== 'Historical Legacy' &&
-                s.badge !== 'Code of Honor'
-            );
-          }
-        } catch {}
+        const parsed = parseArray(saved);
+        if (parsed.length > 0) {
+          // Filter out legacy "Historical Legacy" and "Code of Honor" sections
+          return parsed.filter(
+            (s: any) =>
+              s.id !== 'abt-sec-1' &&
+              s.id !== 'abt-sec-2' &&
+              s.badge !== 'Historical Legacy' &&
+              s.badge !== 'Code of Honor'
+          );
+        }
       }
     }
     return DEFAULT_ABOUT_SECTIONS;
@@ -1317,9 +1347,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [cadetRanks, setCadetRanks] = useState<CadetRankHierarchyItem[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_cadet_ranks');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        const parsed = parseArray(saved);
+        if (parsed.length > 0) return parsed;
       }
     }
     return DEFAULT_CADET_RANKS;
@@ -1341,9 +1372,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 3. Trainings & Events ---
   const [trainingAnnouncements, setTrainingAnnouncements] = useState<TrainingAnnouncement[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_trainings');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        const parsed = parseArray(saved);
+        if (parsed.length > 0) return parsed;
       }
     }
     return DEFAULT_TRAINING_ANNOUNCEMENTS;
@@ -1364,9 +1396,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [trainingFormFields, setTrainingFormFields] = useState<FormFieldConfig[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_training_form_fields');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        const parsed = parseArray(saved);
+        if (parsed.length > 0) return parsed;
       }
     }
     return DEFAULT_TRAINING_FORM_FIELDS;
@@ -1374,9 +1407,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [trainingSubmissions, setTrainingSubmissions] = useState<CustomFormSubmission[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_training_submissions');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        return parseArray(saved);
       }
     }
     return [];
@@ -1395,9 +1428,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 4. Notice & Blogs ---
   const [notices, setNotices] = useState<NoticeItem[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_notices');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        const parsed = parseArray(saved);
+        if (parsed.length > 0) return parsed;
       }
     }
     return NOTICES_DATA;
@@ -1418,9 +1452,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [blogs, setBlogs] = useState<BlogItem[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_blogs');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        const parsed = parseArray(saved);
+        if (parsed.length > 0) return parsed;
       }
     }
     return BLOGS_DATA;
@@ -1442,9 +1477,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 5. Memories ---
   const [memories, setMemories] = useState<MemoryItem[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_memories');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        const parsed = parseArray(saved);
+        if (parsed.length > 0) return parsed;
       }
     }
     return MEMORIES_DATA;
@@ -1466,9 +1502,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 6. Cadet Corner - Database & Directory & Form Builder ---
   const [cadetRegFields, setCadetRegFields] = useState<FormFieldConfig[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_cadet_reg_fields');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        const parsed = parseArray(saved);
+        if (parsed.length > 0) return parsed;
       }
     }
     return DEFAULT_CADET_REG_FIELDS;
@@ -1476,14 +1513,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [cadetUsers, setCadetUsers] = useState<CadetUserAccount[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_cadet_users_v8');
       if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            return parsed;
-          }
-        } catch {}
+        const parsed = parseArray(saved);
+        if (parsed.length > 0) return parsed;
       }
     }
     return DEFAULT_CADET_USERS; // Empty array [] by default - Admin inputs cadets
@@ -1721,9 +1754,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 7. Honor Board - 3 Tabbed Categories ---
   const [honorEntries, setHonorEntries] = useState<HonorEntryItem[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_honor_entries_3cat');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        const parsed = parseArray(saved);
+        if (parsed.length > 0) return parsed;
       }
     }
     return DEFAULT_HONOR_ENTRIES;
@@ -1748,9 +1782,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 8. Contact ---
   const [contactConfig, setContactConfig] = useState<ContactConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_contact_config');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        return parseObject(saved, DEFAULT_CONTACT_CONFIG);
       }
     }
     return DEFAULT_CONTACT_CONFIG;
@@ -1762,9 +1796,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_contact_messages');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        return parseArray(saved);
       }
     }
     return DEFAULT_CONTACT_MESSAGES;
@@ -1791,7 +1825,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 9. Cadet Recruitment ---
   const [isRecruitmentOpen, setIsRecruitmentOpen] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_recruitment_open');
       if (saved !== null) return saved === 'true';
     }
     return true; // Default Open
@@ -1799,9 +1833,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [recruitmentAnnouncement, setRecruitmentAnnouncement] = useState<RecruitmentAnnouncementConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_recruitment_announcement');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        return parseObject(saved, DEFAULT_RECRUITMENT_ANNOUNCEMENT);
       }
     }
     return DEFAULT_RECRUITMENT_ANNOUNCEMENT;
@@ -1813,7 +1847,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [recruitmentNoticeTitle, setRecruitmentNoticeTitle] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_recruitment_title');
       if (saved) return saved;
     }
     return 'Cadet Recruitment Batch 2024-2025 Enrolment Circular';
@@ -1821,9 +1855,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [recruitmentFormFields, setRecruitmentFormFields] = useState<FormFieldConfig[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_recruitment_form_fields');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        const parsed = parseArray(saved);
+        if (parsed.length > 0) return parsed;
       }
     }
     return DEFAULT_RECRUITMENT_FORM_FIELDS;
@@ -1831,9 +1866,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [recruitmentApplicants, setRecruitmentApplicants] = useState<RecruitmentApplicant[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_recruitment_applicants');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        const parsed = parseArray(saved);
+        if (parsed.length > 0) return parsed;
       }
     }
     return DEFAULT_RECRUITMENT_APPLICANTS;
@@ -1842,9 +1878,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- Official Recruitment Printable Signatories Configuration (Editable yearly) ---
   const [recruitmentSignatories, setRecruitmentSignatories] = useState<RecruitmentSignatoriesConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_recruitment_signatories');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        return parseObject(saved, DEFAULT_RECRUITMENT_SIGNATORIES);
       }
     }
     return DEFAULT_RECRUITMENT_SIGNATORIES;
@@ -1955,9 +1991,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // --- 10. Footer Config ---
   const [footerConfig, setFooterConfig] = useState<FooterConfig>(() => {
     if (typeof window !== 'undefined') {
-      const saved = null /* localStorage removed */;
+      const saved = localStorage.getItem('ngdc_footer_config');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        return parseObject(saved, DEFAULT_FOOTER_CONFIG);
       }
     }
     return DEFAULT_FOOTER_CONFIG;

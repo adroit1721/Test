@@ -21,9 +21,15 @@ export async function loadAllSettings(): Promise<Record<string, any>> {
 
 /** Upsert a single setting */
 export async function upsertSetting(key: string, value: any): Promise<void> {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+    } catch {}
+  }
   const client = getSupabaseClient();
   if (!client) return;
-  const record = { id: key, value, updated_at: new Date().toISOString() };
+  const stringified = typeof value === 'string' ? value : JSON.stringify(value);
+  const record = { id: key, value: stringified };
   await client.from('site_settings').upsert([record], { onConflict: 'id' });
 }
 

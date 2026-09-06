@@ -5,8 +5,11 @@ let supabaseInstance: SupabaseClient | null = null;
 
 export function getSupabaseConfig(): { supabaseUrl: string; supabaseAnonKey: string } {
   const metaEnv = (import.meta as any).env || {};
-  let envUrl = metaEnv.VITE_SUPABASE_URL || '';
-  let envKey = metaEnv.VITE_SUPABASE_ANON_KEY || '';
+  const DEFAULT_SUPABASE_URL = 'https://bsncxwxkocsvjhgfsoqo.supabase.co';
+  const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzbmN4d3hrb2NzdmpoZ2Zzb3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDYwMTgsImV4cCI6MjEwNDAyMjAxOH0.CvoMnMOy_IjJ0XiSosVkGJIPHpW7EIv0j2Mo6oDvmBQ';
+
+  let envUrl = metaEnv.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  let envKey = metaEnv.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
   if (typeof window !== 'undefined') {
     try {
@@ -346,9 +349,10 @@ export async function fetchSiteSettings(): Promise<Record<string, any> | null> {
  */
 export async function upsertSiteSetting(id: string, value: any): Promise<boolean> {
   // 1. Immediately cache locally so data is never lost even if network or Supabase is offline
+  const stringifiedValue = typeof value === 'string' ? value : JSON.stringify(value);
   if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem(id, typeof value === 'string' ? value : JSON.stringify(value));
+      localStorage.setItem(id, stringifiedValue);
     } catch (e) {
       console.warn(`localStorage cache error for ${id}:`, e);
     }
@@ -358,8 +362,9 @@ export async function upsertSiteSetting(id: string, value: any): Promise<boolean
   if (!client) return true; // Successfully saved locally
 
   try {
-    const jsonValue = typeof value === 'object' ? value : JSON.parse(JSON.stringify(value));
-    const record = { id, value: jsonValue, updated_at: new Date().toISOString() };
+    // In site_settings table, column 'value' stores JSON string representation.
+    // The table schema has columns: id (text), value (jsonb or text).
+    const record = { id, value: stringifiedValue };
     const { error } = await client
       .from('site_settings')
       .upsert([record], { onConflict: 'id' });
