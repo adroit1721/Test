@@ -325,7 +325,26 @@ export function subscribeToCadetUpdates(onUpdate: (payload: any) => void): () =>
     return () => {};
   }
   const channel = client.channel('public:cadets')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cadets' }, (payload) => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cadets' }, (payload) => {
+      onUpdate(payload);
+    })
+    .subscribe();
+  return () => {
+    client.removeChannel(channel);
+  };
+}
+
+/**
+ * Subscribe to site settings updates via Supabase Realtime.
+ */
+export function subscribeToSiteSettingsUpdates(onUpdate: (payload: any) => void): () => void {
+  const client = getSupabaseClient();
+  if (!client) {
+    console.warn('Supabase client not available for realtime subscription');
+    return () => {};
+  }
+  const channel = client.channel('public:site_settings')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, (payload) => {
       onUpdate(payload);
     })
     .subscribe();

@@ -38,6 +38,7 @@ import {
   deleteCadetFromSupabase,
   isSupabaseConfigured,
   fetchSiteSettings,
+  subscribeToSiteSettingsUpdates,
   upsertSiteSetting,
 } from '../utils/supabaseClient';
 
@@ -713,37 +714,73 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (settings['ngdc_admin_service_pin']) setServicePin(settings['ngdc_admin_service_pin']);
         if (settings['ngdc_hero_slides']) {
           const val = settings['ngdc_hero_slides'];
-          setHeroSlides(Array.isArray(val) ? val : (typeof val === 'string' ? JSON.parse(val) : []));
+          setHeroSlidesAndSave(Array.isArray(val) ? val : (typeof val === 'string' ? JSON.parse(val) : []));
         }
-        if (settings['ngdc_principal_message']) setPrincipalMessage(settings['ngdc_principal_message']);
-        if (settings['ngdc_vice_principal_message']) setVicePrincipalMessage(settings['ngdc_vice_principal_message']);
-        if (settings['ngdc_about_overview']) setAboutOverview(settings['ngdc_about_overview']);
-        if (settings['ngdc_bncco1_message']) setBncco1Message(settings['ngdc_bncco1_message']);
-        if (settings['ngdc_bncco2_message']) setBncco2Message(settings['ngdc_bncco2_message']);
-        if (settings['ngdc_platoon_commander_message']) setPlatoonCommanderMessage(settings['ngdc_platoon_commander_message']);
-        if (settings['ngdc_about_sections']) setAboutSections(settings['ngdc_about_sections']);
-        if (settings['ngdc_cadet_ranks']) setCadetRanks(settings['ngdc_cadet_ranks']);
-        if (settings['ngdc_trainings']) setTrainingAnnouncements(settings['ngdc_trainings']);
-        if (settings['ngdc_training_form_fields']) setTrainingFormFields(settings['ngdc_training_form_fields']);
-        if (settings['ngdc_training_submissions']) setTrainingSubmissions(settings['ngdc_training_submissions']);
-        if (settings['ngdc_notices']) setNotices(settings['ngdc_notices']);
-        if (settings['ngdc_blogs']) setBlogs(settings['ngdc_blogs']);
-        if (settings['ngdc_memories']) setMemories(settings['ngdc_memories']);
-        if (settings['ngdc_cadet_reg_fields']) setCadetRegFields(settings['ngdc_cadet_reg_fields']);
+        if (settings['ngdc_principal_message']) setPrincipalMessageAndSave(settings['ngdc_principal_message']);
+        if (settings['ngdc_vice_principal_message']) setVicePrincipalMessageAndSave(settings['ngdc_vice_principal_message']);
+        if (settings['ngdc_about_overview']) setAboutOverviewAndSave(settings['ngdc_about_overview']);
+        if (settings['ngdc_bncco1_message']) setBncco1MessageAndSave(settings['ngdc_bncco1_message']);
+        if (settings['ngdc_bncco2_message']) setBncco2MessageAndSave(settings['ngdc_bncco2_message']);
+        if (settings['ngdc_platoon_commander_message']) setPlatoonCommanderMessageAndSave(settings['ngdc_platoon_commander_message']);
+        if (settings['ngdc_about_sections']) setAboutSectionsAndSave(settings['ngdc_about_sections']);
+        if (settings['ngdc_cadet_ranks']) setCadetRanksAndSave(settings['ngdc_cadet_ranks']);
+        if (settings['ngdc_trainings']) setTrainingAnnouncementsAndSave(settings['ngdc_trainings']);
+        if (settings['ngdc_training_form_fields']) setTrainingFormFieldsAndSave(settings['ngdc_training_form_fields']);
+        if (settings['ngdc_training_submissions']) setTrainingSubmissionsAndSave(settings['ngdc_training_submissions']);
+        if (settings['ngdc_notices']) setNoticesAndSave(settings['ngdc_notices']);
+        if (settings['ngdc_blogs']) setBlogsAndSave(settings['ngdc_blogs']);
+        if (settings['ngdc_memories']) setMemoriesAndSave(settings['ngdc_memories']);
+        if (settings['ngdc_cadet_reg_fields']) setCadetRegFieldsAndSave(settings['ngdc_cadet_reg_fields']);
         // Ignore cadet_users_v8 as they are handled by Supabase direct table
-        if (settings['ngdc_honor_entries_3cat']) setHonorEntries(settings['ngdc_honor_entries_3cat']);
-        if (settings['ngdc_contact_config']) setContactConfig(settings['ngdc_contact_config']);
-        if (settings['ngdc_contact_messages']) setContactMessages(settings['ngdc_contact_messages']);
-        if (settings['ngdc_recruitment_open']) setIsRecruitmentOpen(settings['ngdc_recruitment_open'] === 'true');
-        if (settings['ngdc_recruitment_announcement']) setRecruitmentAnnouncement(settings['ngdc_recruitment_announcement']);
-        if (settings['ngdc_recruitment_title']) setRecruitmentNoticeTitle(settings['ngdc_recruitment_title']);
-        if (settings['ngdc_recruitment_form_fields']) setRecruitmentFormFields(settings['ngdc_recruitment_form_fields']);
-        if (settings['ngdc_recruitment_applicants']) setRecruitmentApplicants(settings['ngdc_recruitment_applicants']);
-        if (settings['ngdc_recruitment_signatories']) setRecruitmentSignatories(settings['ngdc_recruitment_signatories']);
-        if (settings['ngdc_footer_config']) setFooterConfig(settings['ngdc_footer_config']);
+        if (settings['ngdc_honor_entries_3cat']) setHonorEntriesAndSave(settings['ngdc_honor_entries_3cat']);
+        if (settings['ngdc_contact_config']) setContactConfigAndSave(settings['ngdc_contact_config']);
+        if (settings['ngdc_contact_messages']) setContactMessagesAndSave(settings['ngdc_contact_messages']);
+        if (settings['ngdc_recruitment_open']) setIsRecruitmentOpenAndSave(settings['ngdc_recruitment_open'] === 'true');
+        if (settings['ngdc_recruitment_announcement']) setRecruitmentAnnouncementAndSave(settings['ngdc_recruitment_announcement']);
+        if (settings['ngdc_recruitment_title']) setRecruitmentNoticeTitleAndSave(settings['ngdc_recruitment_title']);
+        if (settings['ngdc_recruitment_form_fields']) setRecruitmentFormFieldsAndSave(settings['ngdc_recruitment_form_fields']);
+        if (settings['ngdc_recruitment_applicants']) setRecruitmentApplicantsAndSave(settings['ngdc_recruitment_applicants']);
+        if (settings['ngdc_recruitment_signatories']) setRecruitmentSignatoriesAndSave(settings['ngdc_recruitment_signatories']);
+        if (settings['ngdc_footer_config']) setFooterConfigAndSave(settings['ngdc_footer_config']);
       }
     }
     loadSettings();
+
+      const unsubscribeSettings = subscribeToSiteSettingsUpdates((payload) => {
+        if (payload.new && payload.new.id) {
+          const key = payload.new.id;
+          const val = payload.new.value;
+          
+          if (key === 'ngdc_hero_slides') setHeroSlides(Array.isArray(val) ? val : (typeof val === 'string' ? JSON.parse(val) : []));
+          else if (key === 'ngdc_principal_message') setPrincipalMessage(val);
+          else if (key === 'ngdc_vice_principal_message') setVicePrincipalMessage(val);
+          else if (key === 'ngdc_about_overview') setAboutOverview(val);
+          else if (key === 'ngdc_bncco1_message') setBncco1Message(val);
+          else if (key === 'ngdc_bncco2_message') setBncco2Message(val);
+          else if (key === 'ngdc_platoon_commander_message') setPlatoonCommanderMessage(val);
+          else if (key === 'ngdc_about_sections') setAboutSections(val);
+          else if (key === 'ngdc_cadet_ranks') setCadetRanks(val);
+          else if (key === 'ngdc_trainings') setTrainingAnnouncements(val);
+          else if (key === 'ngdc_training_form_fields') setTrainingFormFields(val);
+          else if (key === 'ngdc_training_submissions') setTrainingSubmissions(val);
+          else if (key === 'ngdc_notices') setNotices(val);
+          else if (key === 'ngdc_blogs') setBlogs(val);
+          else if (key === 'ngdc_memories') setMemories(val);
+          else if (key === 'ngdc_cadet_reg_fields') setCadetRegFields(val);
+          else if (key === 'ngdc_honor_entries_3cat') setHonorEntries(val);
+          else if (key === 'ngdc_contact_config') setContactConfig(val);
+          else if (key === 'ngdc_contact_messages') setContactMessages(val);
+          else if (key === 'ngdc_recruitment_open') setIsRecruitmentOpen(val === 'true');
+          else if (key === 'ngdc_recruitment_announcement') setRecruitmentAnnouncement(val);
+          else if (key === 'ngdc_recruitment_title') setRecruitmentNoticeTitle(val);
+          else if (key === 'ngdc_recruitment_form_fields') setRecruitmentFormFields(val);
+          else if (key === 'ngdc_recruitment_applicants') setRecruitmentApplicants(val);
+          else if (key === 'ngdc_recruitment_signatories') setRecruitmentSignatories(val);
+          else if (key === 'ngdc_footer_config') setFooterConfig(val);
+        }
+      });
+
+    return () => { unsubscribeSettings(); };
   }, []);
 
   const [servicePin, setServicePin] = useState<string>(() => {
@@ -804,9 +841,222 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return HERO_SLIDES_DATA.map((s) => ({ ...s, isActive: true }));
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_hero_slides', heroSlides);
-  }, [heroSlides]);
+
+  const setHeroSlidesAndSave = (val: any) => {
+    setHeroSlides((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_hero_slides', next);
+      return next;
+    });
+  };
+
+  const setPrincipalMessageAndSave = (val: any) => {
+    setPrincipalMessage((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_principal_message', next);
+      return next;
+    });
+  };
+
+  const setVicePrincipalMessageAndSave = (val: any) => {
+    setVicePrincipalMessage((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_vice_principal_message', next);
+      return next;
+    });
+  };
+
+  const setAboutOverviewAndSave = (val: any) => {
+    setAboutOverview((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_about_overview', next);
+      return next;
+    });
+  };
+
+  const setBncco1MessageAndSave = (val: any) => {
+    setBncco1Message((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_bncco1_message', next);
+      return next;
+    });
+  };
+
+  const setBncco2MessageAndSave = (val: any) => {
+    setBncco2Message((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_bncco2_message', next);
+      return next;
+    });
+  };
+
+  const setPlatoonCommanderMessageAndSave = (val: any) => {
+    setPlatoonCommanderMessage((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_platoon_commander_message', next);
+      return next;
+    });
+  };
+
+  const setAboutSectionsAndSave = (val: any) => {
+    setAboutSections((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_about_sections', next);
+      return next;
+    });
+  };
+
+  const setCadetRanksAndSave = (val: any) => {
+    setCadetRanks((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_cadet_ranks', next);
+      return next;
+    });
+  };
+
+  const setTrainingAnnouncementsAndSave = (val: any) => {
+    setTrainingAnnouncements((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_trainings', next);
+      return next;
+    });
+  };
+
+  const setTrainingFormFieldsAndSave = (val: any) => {
+    setTrainingFormFields((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_training_form_fields', next);
+      return next;
+    });
+  };
+
+  const setTrainingSubmissionsAndSave = (val: any) => {
+    setTrainingSubmissions((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_training_submissions', next);
+      return next;
+    });
+  };
+
+  const setNoticesAndSave = (val: any) => {
+    setNotices((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_notices', next);
+      return next;
+    });
+  };
+
+  const setBlogsAndSave = (val: any) => {
+    setBlogs((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_blogs', next);
+      return next;
+    });
+  };
+
+  const setMemoriesAndSave = (val: any) => {
+    setMemories((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_memories', next);
+      return next;
+    });
+  };
+
+  const setCadetRegFieldsAndSave = (val: any) => {
+    setCadetRegFields((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_cadet_reg_fields', next);
+      return next;
+    });
+  };
+
+  const setCadetUsersAndSave = (val: any) => {
+    setCadetUsers((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_cadet_users_v8', next);
+      return next;
+    });
+  };
+
+  const setHonorEntriesAndSave = (val: any) => {
+    setHonorEntries((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_honor_entries_3cat', next);
+      return next;
+    });
+  };
+
+  const setContactConfigAndSave = (val: any) => {
+    setContactConfig((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_contact_config', next);
+      return next;
+    });
+  };
+
+  const setContactMessagesAndSave = (val: any) => {
+    setContactMessages((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_contact_messages', next);
+      return next;
+    });
+  };
+
+  const setIsRecruitmentOpenAndSave = (val: any) => {
+    setIsRecruitmentOpen((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_recruitment_open', next);
+      return next;
+    });
+  };
+
+  const setRecruitmentAnnouncementAndSave = (val: any) => {
+    setRecruitmentAnnouncement((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_recruitment_announcement', next);
+      return next;
+    });
+  };
+
+  const setRecruitmentNoticeTitleAndSave = (val: any) => {
+    setRecruitmentNoticeTitle((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_recruitment_title', next);
+      return next;
+    });
+  };
+
+  const setRecruitmentFormFieldsAndSave = (val: any) => {
+    setRecruitmentFormFields((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_recruitment_form_fields', next);
+      return next;
+    });
+  };
+
+  const setRecruitmentApplicantsAndSave = (val: any) => {
+    setRecruitmentApplicants((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_recruitment_applicants', next);
+      return next;
+    });
+  };
+
+  const setRecruitmentSignatoriesAndSave = (val: any) => {
+    setRecruitmentSignatories((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_recruitment_signatories', next);
+      return next;
+    });
+  };
+
+  const setFooterConfigAndSave = (val: any) => {
+    setFooterConfig((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_footer_config', next);
+      return next;
+    });
+  };
 
   const addHeroSlide = (slide: Omit<HeroSlide, 'id'>) => {
     const newSlide: HeroSlide = {
@@ -814,15 +1064,15 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       id: `hero-slide-${Date.now()}`,
       isActive: slide.isActive !== false,
     };
-    setHeroSlides((prev) => [...prev, newSlide]);
+    setHeroSlidesAndSave((prev) => [...prev, newSlide]);
   };
 
   const updateHeroSlide = (id: string, slide: Partial<HeroSlide>) => {
-    setHeroSlides((prev) => prev.map((s) => (s.id === id ? { ...s, ...slide } : s)));
+    setHeroSlidesAndSave((prev) => prev.map((s) => (s.id === id ? { ...s, ...slide } : s)));
   };
 
   const deleteHeroSlide = (id: string) => {
-    setHeroSlides((prev) => prev.filter((s) => s.id !== id));
+    setHeroSlidesAndSave((prev) => prev.filter((s) => s.id !== id));
   };
 
   // --- 1.1 Executive Messages (Principal & Vice-Principal) ---
@@ -838,16 +1088,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_PRINCIPAL_MESSAGE;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_principal_message', principalMessage);
-  }, [principalMessage]);
-
   const updatePrincipalMessage = (config: Partial<ExecutiveMessageConfig>) => {
-    setPrincipalMessage((prev) => ({ ...prev, ...config }));
+    setPrincipalMessageAndSave((prev) => ({ ...prev, ...config }));
   };
 
   const resetPrincipalMessage = () => {
-    setPrincipalMessage(DEFAULT_PRINCIPAL_MESSAGE);
+    setPrincipalMessageAndSave(DEFAULT_PRINCIPAL_MESSAGE);
   };
 
   const [vicePrincipalMessage, setVicePrincipalMessage] = useState<ExecutiveMessageConfig>(() => {
@@ -862,16 +1108,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_VICE_PRINCIPAL_MESSAGE;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_vice_principal_message', vicePrincipalMessage);
-  }, [vicePrincipalMessage]);
-
   const updateVicePrincipalMessage = (config: Partial<ExecutiveMessageConfig>) => {
-    setVicePrincipalMessage((prev) => ({ ...prev, ...config }));
+    setVicePrincipalMessageAndSave((prev) => ({ ...prev, ...config }));
   };
 
   const resetVicePrincipalMessage = () => {
-    setVicePrincipalMessage(DEFAULT_VICE_PRINCIPAL_MESSAGE);
+    setVicePrincipalMessageAndSave(DEFAULT_VICE_PRINCIPAL_MESSAGE);
   };
 
   // --- 2. About Us - Overview, Messages & Rank Hierarchy ---
@@ -885,16 +1127,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_ABOUT_OVERVIEW;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_about_overview', aboutOverview);
-  }, [aboutOverview]);
-
   const updateAboutOverview = (config: Partial<AboutOverviewConfig>) => {
-    setAboutOverview((prev) => ({ ...prev, ...config }));
+    setAboutOverviewAndSave((prev) => ({ ...prev, ...config }));
   };
 
   const resetAboutOverview = () => {
-    setAboutOverview(DEFAULT_ABOUT_OVERVIEW);
+    setAboutOverviewAndSave(DEFAULT_ABOUT_OVERVIEW);
   };
 
   const [bncco1Message, setBncco1Message] = useState<ExecutiveMessageConfig>(() => {
@@ -907,16 +1145,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_BNCCO1_MESSAGE;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_bncco1_message', bncco1Message);
-  }, [bncco1Message]);
-
   const updateBncco1Message = (config: Partial<ExecutiveMessageConfig>) => {
-    setBncco1Message((prev) => ({ ...prev, ...config }));
+    setBncco1MessageAndSave((prev) => ({ ...prev, ...config }));
   };
 
   const resetBncco1Message = () => {
-    setBncco1Message(DEFAULT_BNCCO1_MESSAGE);
+    setBncco1MessageAndSave(DEFAULT_BNCCO1_MESSAGE);
   };
 
   const [bncco2Message, setBncco2Message] = useState<ExecutiveMessageConfig>(() => {
@@ -929,16 +1163,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_BNCCO2_MESSAGE;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_bncco2_message', bncco2Message);
-  }, [bncco2Message]);
-
   const updateBncco2Message = (config: Partial<ExecutiveMessageConfig>) => {
-    setBncco2Message((prev) => ({ ...prev, ...config }));
+    setBncco2MessageAndSave((prev) => ({ ...prev, ...config }));
   };
 
   const resetBncco2Message = () => {
-    setBncco2Message(DEFAULT_BNCCO2_MESSAGE);
+    setBncco2MessageAndSave(DEFAULT_BNCCO2_MESSAGE);
   };
 
   const [platoonCommanderMessage, setPlatoonCommanderMessage] = useState<ExecutiveMessageConfig>(() => {
@@ -951,16 +1181,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_PLATOON_COMMANDER_MESSAGE;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_platoon_commander_message', platoonCommanderMessage);
-  }, [platoonCommanderMessage]);
-
   const updatePlatoonCommanderMessage = (config: Partial<ExecutiveMessageConfig>) => {
-    setPlatoonCommanderMessage((prev) => ({ ...prev, ...config }));
+    setPlatoonCommanderMessageAndSave((prev) => ({ ...prev, ...config }));
   };
 
   const resetPlatoonCommanderMessage = () => {
-    setPlatoonCommanderMessage(DEFAULT_PLATOON_COMMANDER_MESSAGE);
+    setPlatoonCommanderMessageAndSave(DEFAULT_PLATOON_COMMANDER_MESSAGE);
   };
 
   const [aboutSections, setAboutSections] = useState<CustomAboutSection[]>(() => {
@@ -985,21 +1211,17 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_ABOUT_SECTIONS;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_about_sections', aboutSections);
-  }, [aboutSections]);
-
   const addAboutSection = (sec: Omit<CustomAboutSection, 'id'>) => {
     const newSec: CustomAboutSection = { ...sec, id: `abt-sec-${Date.now()}` };
-    setAboutSections((prev) => [...prev, newSec]);
+    setAboutSectionsAndSave((prev) => [...prev, newSec]);
   };
 
   const updateAboutSection = (id: string, sec: Partial<CustomAboutSection>) => {
-    setAboutSections((prev) => prev.map((s) => (s.id === id ? { ...s, ...sec } : s)));
+    setAboutSectionsAndSave((prev) => prev.map((s) => (s.id === id ? { ...s, ...sec } : s)));
   };
 
   const deleteAboutSection = (id: string) => {
-    setAboutSections((prev) => prev.filter((s) => s.id !== id));
+    setAboutSectionsAndSave((prev) => prev.filter((s) => s.id !== id));
   };
 
   const [cadetRanks, setCadetRanks] = useState<CadetRankHierarchyItem[]>(() => {
@@ -1012,21 +1234,17 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_CADET_RANKS;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_cadet_ranks', cadetRanks);
-  }, [cadetRanks]);
-
   const addCadetRank = (rank: Omit<CadetRankHierarchyItem, 'id'>) => {
     const newRank: CadetRankHierarchyItem = { ...rank, id: `rank-${Date.now()}` };
-    setCadetRanks((prev) => [...prev, newRank]);
+    setCadetRanksAndSave((prev) => [...prev, newRank]);
   };
 
   const updateCadetRank = (id: string, rank: Partial<CadetRankHierarchyItem>) => {
-    setCadetRanks((prev) => prev.map((r) => (r.id === id ? { ...r, ...rank } : r)));
+    setCadetRanksAndSave((prev) => prev.map((r) => (r.id === id ? { ...r, ...rank } : r)));
   };
 
   const deleteCadetRank = (id: string) => {
-    setCadetRanks((prev) => prev.filter((r) => r.id !== id));
+    setCadetRanksAndSave((prev) => prev.filter((r) => r.id !== id));
   };
 
   // --- 3. Trainings & Events ---
@@ -1040,21 +1258,17 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_TRAINING_ANNOUNCEMENTS;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_trainings', trainingAnnouncements);
-  }, [trainingAnnouncements]);
-
   const addTrainingAnnouncement = (ann: Omit<TrainingAnnouncement, 'id'>) => {
     const newAnn: TrainingAnnouncement = { ...ann, id: `tr-${Date.now()}` };
-    setTrainingAnnouncements((prev) => [newAnn, ...prev]);
+    setTrainingAnnouncementsAndSave((prev) => [newAnn, ...prev]);
   };
 
   const updateTrainingAnnouncement = (id: string, ann: Partial<TrainingAnnouncement>) => {
-    setTrainingAnnouncements((prev) => prev.map((a) => (a.id === id ? { ...a, ...ann } : a)));
+    setTrainingAnnouncementsAndSave((prev) => prev.map((a) => (a.id === id ? { ...a, ...ann } : a)));
   };
 
   const deleteTrainingAnnouncement = (id: string) => {
-    setTrainingAnnouncements((prev) => prev.filter((a) => a.id !== id));
+    setTrainingAnnouncementsAndSave((prev) => prev.filter((a) => a.id !== id));
   };
 
   const [trainingFormFields, setTrainingFormFields] = useState<FormFieldConfig[]>(() => {
@@ -1066,10 +1280,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     return DEFAULT_TRAINING_FORM_FIELDS;
   });
-
-  useEffect(() => {
-    upsertSiteSetting('ngdc_training_form_fields', trainingFormFields);
-  }, [trainingFormFields]);
 
   const [trainingSubmissions, setTrainingSubmissions] = useState<CustomFormSubmission[]>(() => {
     if (typeof window !== 'undefined') {
@@ -1087,7 +1297,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       id: `sub-${Date.now()}`,
       submittedAt: new Date().toLocaleString(),
     };
-    setTrainingSubmissions((prev) => [newSub, ...prev]);
+    setTrainingSubmissionsAndSave((prev) => [newSub, ...prev]);
     upsertSiteSetting('ngdc_training_submissions', [newSub, ...trainingSubmissions]);
   };
 
@@ -1102,21 +1312,17 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return NOTICES_DATA;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_notices', notices);
-  }, [notices]);
-
   const addNotice = (notice: Omit<NoticeItem, 'id'>) => {
     const newNotice: NoticeItem = { ...notice, id: `not-${Date.now()}` };
-    setNotices((prev) => [newNotice, ...prev]);
+    setNoticesAndSave((prev) => [newNotice, ...prev]);
   };
 
   const updateNotice = (id: string, notice: Partial<NoticeItem>) => {
-    setNotices((prev) => prev.map((n) => (n.id === id ? { ...n, ...notice } : n)));
+    setNoticesAndSave((prev) => prev.map((n) => (n.id === id ? { ...n, ...notice } : n)));
   };
 
   const deleteNotice = (id: string) => {
-    setNotices((prev) => prev.filter((n) => n.id !== id));
+    setNoticesAndSave((prev) => prev.filter((n) => n.id !== id));
   };
 
   const [blogs, setBlogs] = useState<BlogItem[]>(() => {
@@ -1129,21 +1335,17 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return BLOGS_DATA;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_blogs', blogs);
-  }, [blogs]);
-
   const addBlog = (blog: Omit<BlogItem, 'id'>) => {
     const newBlog: BlogItem = { ...blog, id: `blog-${Date.now()}` };
-    setBlogs((prev) => [newBlog, ...prev]);
+    setBlogsAndSave((prev) => [newBlog, ...prev]);
   };
 
   const updateBlog = (id: string, blog: Partial<BlogItem>) => {
-    setBlogs((prev) => prev.map((b) => (b.id === id ? { ...b, ...blog } : b)));
+    setBlogsAndSave((prev) => prev.map((b) => (b.id === id ? { ...b, ...blog } : b)));
   };
 
   const deleteBlog = (id: string) => {
-    setBlogs((prev) => prev.filter((b) => b.id !== id));
+    setBlogsAndSave((prev) => prev.filter((b) => b.id !== id));
   };
 
   // --- 5. Memories ---
@@ -1157,21 +1359,17 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return MEMORIES_DATA;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_memories', memories);
-  }, [memories]);
-
   const addMemory = (mem: Omit<MemoryItem, 'id'>) => {
     const newMem: MemoryItem = { ...mem, id: `mem-${Date.now()}` };
-    setMemories((prev) => [newMem, ...prev]);
+    setMemoriesAndSave((prev) => [newMem, ...prev]);
   };
 
   const updateMemory = (id: string, mem: Partial<MemoryItem>) => {
-    setMemories((prev) => prev.map((m) => (m.id === id ? { ...m, ...mem } : m)));
+    setMemoriesAndSave((prev) => prev.map((m) => (m.id === id ? { ...m, ...mem } : m)));
   };
 
   const deleteMemory = (id: string) => {
-    setMemories((prev) => prev.filter((m) => m.id !== id));
+    setMemoriesAndSave((prev) => prev.filter((m) => m.id !== id));
   };
 
   // --- 6. Cadet Corner - Database & Directory & Form Builder ---
@@ -1184,10 +1382,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     return DEFAULT_CADET_REG_FIELDS;
   });
-
-  useEffect(() => {
-    upsertSiteSetting('ngdc_cadet_reg_fields', cadetRegFields);
-  }, [cadetRegFields]);
 
   const [cadetUsers, setCadetUsers] = useState<CadetUserAccount[]>(() => {
     if (typeof window !== 'undefined') {
@@ -1210,7 +1404,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       try {
         const remote = await fetchCadetsFromSupabase();
         if (remote && Array.isArray(remote) && remote.length > 0) {
-          setCadetUsers(remote);
+          setCadetUsersAndSave(remote);
         }
       } catch (err) {
         console.warn('Error fetching cadets from Supabase:', err);
@@ -1221,10 +1415,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     syncCadetsWithSupabase();
   }, []);
-
-  useEffect(() => {
-    upsertSiteSetting('ngdc_cadet_users_v8', cadetUsers);
-  }, [cadetUsers]);
 
   const addCadetUser = (user: Omit<CadetUserAccount, 'id'>) => {
     const category: PlatoonCategory = user.category || 'Male Platoon';
@@ -1237,7 +1427,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       cadetType: user.cadetType || (category === 'Ex-cadets' ? 'Ex-cadet' : 'Current'),
       isApproved: user.isApproved !== undefined ? user.isApproved : true,
     };
-    setCadetUsers((prev) => [newUser, ...prev]);
+    setCadetUsersAndSave((prev) => [newUser, ...prev]);
 
     // Asynchronously push to Supabase Postgres database if configured
     upsertCadetToSupabase(newUser).catch((err) => {
@@ -1246,7 +1436,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const updateCadetUser = (id: string, user: Partial<CadetUserAccount>) => {
-    setCadetUsers((prev) => {
+    setCadetUsersAndSave((prev) => {
       const updated = prev.map((u) => {
         if (u.id === id) {
           const merged = { ...u, ...user };
@@ -1263,7 +1453,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const deleteCadetUser = (id: string) => {
-    setCadetUsers((prev) => prev.filter((u) => u.id !== id));
+    setCadetUsersAndSave((prev) => prev.filter((u) => u.id !== id));
     // Asynchronously delete from Supabase Postgres database
     deleteCadetFromSupabase(id).catch((err) => {
       console.warn('Failed to delete cadet from Supabase:', err);
@@ -1281,7 +1471,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   ) => {
     let approvedCadet: CadetUserAccount | null = null;
-    setCadetUsers((prev) =>
+    setCadetUsersAndSave((prev) =>
       prev.map((c) => {
         if (c.id !== id) return c;
         const targetCategory: PlatoonCategory = options.category || c.category || 'Male Platoon';
@@ -1310,7 +1500,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const clearAllCadetUsers = () => {
-    setCadetUsers([]);
+    setCadetUsersAndSave([]);
   };
 
   // Public Cadet Auth Session
@@ -1412,7 +1602,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       avatarUrl: cadetData.avatarUrl || '',
     };
 
-    setCadetUsers((prev) => [newCadet, ...prev]);
+    setCadetUsersAndSave((prev) => [newCadet, ...prev]);
 
     // Upsert to Supabase if configured
     upsertCadetToSupabase(newCadet).catch((err) => {
@@ -1448,24 +1638,20 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_HONOR_ENTRIES;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_honor_entries_3cat', honorEntries);
-  }, [honorEntries]);
-
   const addHonorEntry = (entry: Omit<HonorEntryItem, 'id'>) => {
     const newEntry: HonorEntryItem = {
       ...entry,
       id: `honor-${Date.now()}`,
     };
-    setHonorEntries((prev) => [...prev, newEntry]);
+    setHonorEntriesAndSave((prev) => [...prev, newEntry]);
   };
 
   const updateHonorEntry = (id: string, entry: Partial<HonorEntryItem>) => {
-    setHonorEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...entry } : e)));
+    setHonorEntriesAndSave((prev) => prev.map((e) => (e.id === id ? { ...e, ...entry } : e)));
   };
 
   const deleteHonorEntry = (id: string) => {
-    setHonorEntries((prev) => prev.filter((e) => e.id !== id));
+    setHonorEntriesAndSave((prev) => prev.filter((e) => e.id !== id));
   };
 
   // --- 8. Contact ---
@@ -1479,12 +1665,8 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_CONTACT_CONFIG;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_contact_config', contactConfig);
-  }, [contactConfig]);
-
   const updateContactConfig = (config: Partial<ContactConfig>) => {
-    setContactConfig((prev) => ({ ...prev, ...config }));
+    setContactConfigAndSave((prev) => ({ ...prev, ...config }));
   };
 
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>(() => {
@@ -1497,10 +1679,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_CONTACT_MESSAGES;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_contact_messages', contactMessages);
-  }, [contactMessages]);
-
   const addContactMessage = (msg: Omit<ContactMessage, 'id' | 'timestamp'>) => {
     const newMsg: ContactMessage = {
       ...msg,
@@ -1508,15 +1686,15 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       timestamp: new Date().toLocaleString(),
       isRead: false,
     };
-    setContactMessages((prev) => [newMsg, ...prev]);
+    setContactMessagesAndSave((prev) => [newMsg, ...prev]);
   };
 
   const markContactMessageRead = (id: string) => {
-    setContactMessages((prev) => prev.map((m) => (m.id === id ? { ...m, isRead: true } : m)));
+    setContactMessagesAndSave((prev) => prev.map((m) => (m.id === id ? { ...m, isRead: true } : m)));
   };
 
   const deleteContactMessage = (id: string) => {
-    setContactMessages((prev) => prev.filter((m) => m.id !== id));
+    setContactMessagesAndSave((prev) => prev.filter((m) => m.id !== id));
   };
 
   // --- 9. Cadet Recruitment ---
@@ -1528,10 +1706,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return true; // Default Open
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_recruitment_open', isRecruitmentOpen ? 'true' : 'false');
-  }, [isRecruitmentOpen]);
-
   const [recruitmentAnnouncement, setRecruitmentAnnouncement] = useState<RecruitmentAnnouncementConfig>(() => {
     if (typeof window !== 'undefined') {
       const saved = null /* localStorage removed */;
@@ -1542,12 +1716,8 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_RECRUITMENT_ANNOUNCEMENT;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_recruitment_announcement', recruitmentAnnouncement);
-  }, [recruitmentAnnouncement]);
-
   const updateRecruitmentAnnouncement = (ann: Partial<RecruitmentAnnouncementConfig>) => {
-    setRecruitmentAnnouncement((prev) => ({ ...prev, ...ann }));
+    setRecruitmentAnnouncementAndSave((prev) => ({ ...prev, ...ann }));
   };
 
   const [recruitmentNoticeTitle, setRecruitmentNoticeTitle] = useState<string>(() => {
@@ -1557,10 +1727,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     return 'Cadet Recruitment Batch 2024-2025 Enrolment Circular';
   });
-
-  useEffect(() => {
-    upsertSiteSetting('ngdc_recruitment_title', recruitmentNoticeTitle);
-  }, [recruitmentNoticeTitle]);
 
   const [recruitmentFormFields, setRecruitmentFormFields] = useState<FormFieldConfig[]>(() => {
     if (typeof window !== 'undefined') {
@@ -1572,10 +1738,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_RECRUITMENT_FORM_FIELDS;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_recruitment_form_fields', recruitmentFormFields);
-  }, [recruitmentFormFields]);
-
   const [recruitmentApplicants, setRecruitmentApplicants] = useState<RecruitmentApplicant[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = null /* localStorage removed */;
@@ -1585,10 +1747,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     return DEFAULT_RECRUITMENT_APPLICANTS;
   });
-
-  useEffect(() => {
-    upsertSiteSetting('ngdc_recruitment_applicants', recruitmentApplicants);
-  }, [recruitmentApplicants]);
 
   // --- Official Recruitment Printable Signatories Configuration (Editable yearly) ---
   const [recruitmentSignatories, setRecruitmentSignatories] = useState<RecruitmentSignatoriesConfig>(() => {
@@ -1601,16 +1759,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_RECRUITMENT_SIGNATORIES;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_recruitment_signatories', recruitmentSignatories);
-  }, [recruitmentSignatories]);
-
   const updateRecruitmentSignatories = (config: Partial<RecruitmentSignatoriesConfig>) => {
-    setRecruitmentSignatories((prev) => ({ ...prev, ...config }));
+    setRecruitmentSignatoriesAndSave((prev) => ({ ...prev, ...config }));
   };
 
   const resetRecruitmentSignatories = () => {
-    setRecruitmentSignatories(DEFAULT_RECRUITMENT_SIGNATORIES);
+    setRecruitmentSignatoriesAndSave(DEFAULT_RECRUITMENT_SIGNATORIES);
   };
 
   const addRecruitmentApplicant = (applicant: Omit<RecruitmentApplicant, 'id' | 'token' | 'appliedAt' | 'status'> & { token?: string }): string => {
@@ -1625,22 +1779,22 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       status: 'Pending',
       appliedAt: new Date().toLocaleString(),
     };
-    setRecruitmentApplicants((prev) => [newApplicant, ...prev]);
+    setRecruitmentApplicantsAndSave((prev) => [newApplicant, ...prev]);
     return token;
   };
 
   const updateApplicantStatus = (id: string, status: RecruitmentApplicant['status']) => {
-    setRecruitmentApplicants((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+    setRecruitmentApplicantsAndSave((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
   };
 
   const updateRecruitmentApplicant = (id: string, applicant: Partial<RecruitmentApplicant>) => {
-    setRecruitmentApplicants((prev) =>
+    setRecruitmentApplicantsAndSave((prev) =>
       prev.map((a) => (a.id === id ? { ...a, ...applicant } : a))
     );
   };
 
   const deleteRecruitmentApplicant = (id: string) => {
-    setRecruitmentApplicants((prev) => prev.filter((a) => a.id !== id));
+    setRecruitmentApplicantsAndSave((prev) => prev.filter((a) => a.id !== id));
   };
 
   // Export Applicants to Excel (.xlsx format)
@@ -1718,12 +1872,8 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_FOOTER_CONFIG;
   });
 
-  useEffect(() => {
-    upsertSiteSetting('ngdc_footer_config', footerConfig);
-  }, [footerConfig]);
-
   const updateFooterConfig = (config: Partial<FooterConfig>) => {
-    setFooterConfig((prev) => ({ ...prev, ...config }));
+    setFooterConfigAndSave((prev) => ({ ...prev, ...config }));
   };
 
   const resetAllToDefault = () => {
