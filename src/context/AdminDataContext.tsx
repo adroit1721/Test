@@ -704,6 +704,20 @@ interface AdminDataContextType {
 const AdminDataContext = createContext<AdminDataContextType | undefined>(undefined);
 
 export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Safe array parser - handles JSON strings, arrays, and null values from Supabase
+  const parseArray = (val: any): any[] => {
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+      try {
+        const parsed = JSON.parse(val);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   // --- Admin PIN (Default: 1721) ---
   
   // --- Supabase Site Settings Initialization ---
@@ -712,34 +726,31 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const settings = await fetchSiteSettings();
       if (settings) {
         if (settings['ngdc_admin_service_pin']) setServicePin(settings['ngdc_admin_service_pin']);
-        if (settings['ngdc_hero_slides']) {
-          const val = settings['ngdc_hero_slides'];
-          setHeroSlidesAndSave(Array.isArray(val) ? val : (typeof val === 'string' ? JSON.parse(val) : []));
-        }
+        if (settings['ngdc_hero_slides']) setHeroSlidesAndSave(parseArray(settings['ngdc_hero_slides']));
         if (settings['ngdc_principal_message']) setPrincipalMessageAndSave(settings['ngdc_principal_message']);
         if (settings['ngdc_vice_principal_message']) setVicePrincipalMessageAndSave(settings['ngdc_vice_principal_message']);
         if (settings['ngdc_about_overview']) setAboutOverviewAndSave(settings['ngdc_about_overview']);
         if (settings['ngdc_bncco1_message']) setBncco1MessageAndSave(settings['ngdc_bncco1_message']);
         if (settings['ngdc_bncco2_message']) setBncco2MessageAndSave(settings['ngdc_bncco2_message']);
         if (settings['ngdc_platoon_commander_message']) setPlatoonCommanderMessageAndSave(settings['ngdc_platoon_commander_message']);
-        if (settings['ngdc_about_sections']) setAboutSectionsAndSave(settings['ngdc_about_sections']);
-        if (settings['ngdc_cadet_ranks']) setCadetRanksAndSave(settings['ngdc_cadet_ranks']);
-        if (settings['ngdc_trainings']) setTrainingAnnouncementsAndSave(settings['ngdc_trainings']);
-        if (settings['ngdc_training_form_fields']) setTrainingFormFieldsAndSave(settings['ngdc_training_form_fields']);
-        if (settings['ngdc_training_submissions']) setTrainingSubmissionsAndSave(settings['ngdc_training_submissions']);
-        if (settings['ngdc_notices']) setNoticesAndSave(settings['ngdc_notices']);
-        if (settings['ngdc_blogs']) setBlogsAndSave(settings['ngdc_blogs']);
-        if (settings['ngdc_memories']) setMemoriesAndSave(settings['ngdc_memories']);
-        if (settings['ngdc_cadet_reg_fields']) setCadetRegFieldsAndSave(settings['ngdc_cadet_reg_fields']);
+        if (settings['ngdc_about_sections']) setAboutSectionsAndSave(parseArray(settings['ngdc_about_sections']));
+        if (settings['ngdc_cadet_ranks']) setCadetRanksAndSave(parseArray(settings['ngdc_cadet_ranks']));
+        if (settings['ngdc_trainings']) setTrainingAnnouncementsAndSave(parseArray(settings['ngdc_trainings']));
+        if (settings['ngdc_training_form_fields']) setTrainingFormFieldsAndSave(parseArray(settings['ngdc_training_form_fields']));
+        if (settings['ngdc_training_submissions']) setTrainingSubmissionsAndSave(parseArray(settings['ngdc_training_submissions']));
+        if (settings['ngdc_notices']) setNoticesAndSave(parseArray(settings['ngdc_notices']));
+        if (settings['ngdc_blogs']) setBlogsAndSave(parseArray(settings['ngdc_blogs']));
+        if (settings['ngdc_memories']) setMemoriesAndSave(parseArray(settings['ngdc_memories']));
+        if (settings['ngdc_cadet_reg_fields']) setCadetRegFieldsAndSave(parseArray(settings['ngdc_cadet_reg_fields']));
         // Ignore cadet_users_v8 as they are handled by Supabase direct table
-        if (settings['ngdc_honor_entries_3cat']) setHonorEntriesAndSave(settings['ngdc_honor_entries_3cat']);
+        if (settings['ngdc_honor_entries_3cat']) setHonorEntriesAndSave(parseArray(settings['ngdc_honor_entries_3cat']));
         if (settings['ngdc_contact_config']) setContactConfigAndSave(settings['ngdc_contact_config']);
-        if (settings['ngdc_contact_messages']) setContactMessagesAndSave(settings['ngdc_contact_messages']);
+        if (settings['ngdc_contact_messages']) setContactMessagesAndSave(parseArray(settings['ngdc_contact_messages']));
         if (settings['ngdc_recruitment_open']) setIsRecruitmentOpenAndSave(settings['ngdc_recruitment_open'] === 'true');
         if (settings['ngdc_recruitment_announcement']) setRecruitmentAnnouncementAndSave(settings['ngdc_recruitment_announcement']);
         if (settings['ngdc_recruitment_title']) setRecruitmentNoticeTitleAndSave(settings['ngdc_recruitment_title']);
-        if (settings['ngdc_recruitment_form_fields']) setRecruitmentFormFieldsAndSave(settings['ngdc_recruitment_form_fields']);
-        if (settings['ngdc_recruitment_applicants']) setRecruitmentApplicantsAndSave(settings['ngdc_recruitment_applicants']);
+        if (settings['ngdc_recruitment_form_fields']) setRecruitmentFormFieldsAndSave(parseArray(settings['ngdc_recruitment_form_fields']));
+        if (settings['ngdc_recruitment_applicants']) setRecruitmentApplicantsAndSave(parseArray(settings['ngdc_recruitment_applicants']));
         if (settings['ngdc_recruitment_signatories']) setRecruitmentSignatoriesAndSave(settings['ngdc_recruitment_signatories']);
         if (settings['ngdc_footer_config']) setFooterConfigAndSave(settings['ngdc_footer_config']);
       }
