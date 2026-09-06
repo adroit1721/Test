@@ -15,37 +15,15 @@ export interface CloudinaryUploadResponse {
  * Retrieve Cloudinary configuration.
  * First tries Supabase site_settings, then falls back to Vite env variables.
  */
-export async function getCloudinaryConfig(): Promise<{ cloudName: string; uploadPreset: string }> {
-  // Load from Supabase site_settings if possible
-  const { supabase } = await import('./supabaseClient').then(m => ({ supabase: m.getSupabaseClient?.() }));
-  let cloudName = '';
-  let uploadPreset = '';
-  if (supabase) {
-    const { data, error } = await supabase
-      .from('site_settings')
-      .select('id, value')
-      .in('id', ['ngdc_cloudinary_cloud_name', 'ngdc_cloudinary_upload_preset']);
-    if (!error && Array.isArray(data)) {
-      data.forEach((row: any) => {
-        if (row.id === 'ngdc_cloudinary_cloud_name') cloudName = row.value;
-        if (row.id === 'ngdc_cloudinary_upload_preset') uploadPreset = row.value;
-      });
-    }
-  }
-  // Env fallback (Vite) – useful for local dev
-  const metaEnv = (import.meta as any).env || {};
-  const envCloudName = metaEnv.VITE_CLOUDINARY_CLOUD_NAME || '';
-  const envUploadPreset = metaEnv.VITE_CLOUDINARY_UPLOAD_PRESET || '';
-
-  return {
-    cloudName: (envCloudName || localCloudName || '').trim(),
-    uploadPreset: (envUploadPreset || localUploadPreset || '').trim(),
-  };
+export function getCloudinaryConfig(): { cloudName: string; uploadPreset: string } {
+  const cloudName = (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '').trim();
+  const uploadPreset = (import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '').trim();
+  return { cloudName, uploadPreset };
 }
 
 export function isCloudinaryConfigured(): boolean {
-  const config = getCloudinaryConfig();
-  return Boolean(config.cloudName && config.uploadPreset);
+  const { cloudName, uploadPreset } = getCloudinaryConfig();
+  return Boolean(cloudName && uploadPreset);
 }
 
 /**
@@ -59,49 +37,34 @@ export async function uploadImageToCloudinary(
 ): Promise<CloudinaryUploadResponse> {
   const { cloudName, uploadPreset } = getCloudinaryConfig();
 
-  // If Cloudinary is configured with cloud_name and upload_preset
-  if (cloudName && uploadPreset) {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', uploadPreset);
-      if (folder) {
-        formData.append('folder', folder);
-      }
-
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData?.error?.message || `Cloudinary upload failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return {
-        url: data.secure_url || data.url,
-        publicId: data.public_id,
-        source: 'cloudinary',
-      };
-    } catch (err: any) {
-      console.warn('Cloudinary upload failed, falling back to local storage:', err);
-      // Fallback to local Data URL
-      const dataUrl = await fileToDataUrl(file);
-      return {
-        url: dataUrl,
-        source: 'local_fallback',
-        error: err?.message || 'Upload to Cloudinary failed. Stored locally.',
-      };
-    }
+  if (!cloudName || !uploadPreset) {
+    throw new Error(
+      'Cloudinary configuration missing. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET environment variables.'
+    );
   }
 
-  // Fallback: Read file as Data URL
-  const dataUrl = await fileToDataUrl(file);
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', uploadPreset);
+  if (folder) {
+    formData.append('folder', folder);
+  }
+
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData?.error?.message || `Cloudinary upload failed: ${response.statusText}`);
+  }
+
+  const data = await response.json();
   return {
-    url: dataUrl,
-    source: 'local_fallback',
+    url: data.secure_url || data.url,
+    publicId: data.public_id,
+    source: 'cloudinary',
   };
 }
 

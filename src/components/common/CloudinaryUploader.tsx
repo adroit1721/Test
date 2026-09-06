@@ -1,7 +1,7 @@
 // src/components/common/CloudinaryUploader.tsx
 import React, { useState, useRef } from 'react';
 import { Upload, Loader2, CheckCircle2, AlertCircle, X, Cloud } from 'lucide-react';
-import { uploadImageToCloudinary, isCloudinaryConfigured } from '../../utils/cloudinary';
+import { uploadImageToCloudinary } from '../../utils/cloudinary';
 
 interface CloudinaryUploaderProps {
   value?: string;
@@ -35,7 +35,6 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
 
   const displayImage = value || currentImageUrl || '';
   const effectiveHelperText = helperText || helpText;
-  const isConfigured = isCloudinaryConfigured();
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -58,7 +57,7 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
       if (typeof onUploadComplete === 'function') onUploadComplete(url);
     } catch (err) {
       console.error(err);
-      setStatusMessage({ type: 'error', text: 'Upload failed.' });
+      setStatusMessage({ type: 'error', text: 'Upload failed: Cloudinary configuration missing.' });
     } finally {
       setIsUploading(false);
     }
@@ -92,7 +91,7 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
           </label>
           <span className="text-[10px] flex items-center gap-1 font-mono text-[#7c7767] dark:text-[#aca596]">
             <Cloud className="w-3 h-3 text-[#6b5e10] dark:text-[#eedc82]" />
-            {isConfigured ? 'Cloudinary CDN Active' : 'Cloudinary Enabled'}
+            'Cloudinary CDN Active'
           </span>
         </div>
       )}
