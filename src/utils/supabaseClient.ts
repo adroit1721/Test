@@ -311,3 +311,24 @@ export async function upsertSiteSetting(id: string, value: any): Promise<boolean
     return false;
   }
 }
+
+/**
+ * Subscribe to cadet updates via Supabase Realtime.
+ * Calls `onUpdate` with the realtime payload whenever a row in the `cadets` table is updated.
+ * Returns an unsubscribe function to clean up the subscription.
+ */
+export function subscribeToCadetUpdates(onUpdate: (payload: any) => void): () => void {
+  const client = getSupabaseClient();
+  if (!client) {
+    console.warn('Supabase client not available for realtime subscription');
+    return () => {};
+  }
+  const channel = client.channel('public:cadets')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cadets' }, (payload) => {
+      onUpdate(payload);
+    })
+    .subscribe();
+  return () => {
+    client.removeChannel(channel);
+  };
+}

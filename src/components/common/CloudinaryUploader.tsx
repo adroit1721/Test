@@ -1,5 +1,6 @@
+// src/components/common/CloudinaryUploader.tsx
 import React, { useState, useRef } from 'react';
-import { Upload, Image as ImageIcon, Loader2, CheckCircle2, AlertCircle, X, Cloud } from 'lucide-react';
+import { Upload, Loader2, CheckCircle2, AlertCircle, X, Cloud } from 'lucide-react';
 import { uploadImageToCloudinary, isCloudinaryConfigured } from '../../utils/cloudinary';
 
 interface CloudinaryUploaderProps {
@@ -39,46 +40,27 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
-
-    // Validate type
-    if (!file.type.startsWith('image/')) {
-      setStatusMessage({ type: 'error', text: 'Please select a valid image file (JPG, PNG, WebP).' });
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setStatusMessage({ type: 'error', text: 'Invalid file type. Only JPG, PNG, WebP allowed.' });
       return;
     }
-
-    // Limit to 10MB
     if (file.size > 10 * 1024 * 1024) {
-      setStatusMessage({ type: 'error', text: 'File size must be under 10MB.' });
+      setStatusMessage({ type: 'error', text: 'File size exceeds 10MB limit.' });
       return;
     }
-
     setIsUploading(true);
-    setStatusMessage({ type: 'info', text: isConfigured ? 'Uploading to Cloudinary...' : 'Processing local image...' });
-
+    setStatusMessage({ type: 'info', text: 'Uploading to Cloudinary...' });
     try {
-      const result = await uploadImageToCloudinary(file, folder);
-      
-      // Safely notify callbacks without throwing
-      if (typeof onChange === 'function') {
-        onChange(result.url);
-      }
-      if (typeof onUploadComplete === 'function') {
-        onUploadComplete(result.url);
-      }
-
-      if (result.source === 'cloudinary') {
-        setStatusMessage({ type: 'success', text: 'Uploaded to Cloudinary CDN!' });
-      } else {
-        setStatusMessage({ type: 'info', text: 'Loaded locally. (Configure Cloudinary preset in .env for Cloud CDN)' });
-      }
-    } catch (err: any) {
-      console.error('Image upload failed:', err);
-      setStatusMessage({ type: 'error', text: err?.message || 'Failed to upload image.' });
+      const url = await uploadImageToCloudinary(file, folder);
+      setStatusMessage({ type: 'success', text: 'Uploaded to Cloudinary CDN!' });
+      if (typeof onChange === 'function') onChange(url);
+      if (typeof onUploadComplete === 'function') onUploadComplete(url);
+    } catch (err) {
+      console.error(err);
+      setStatusMessage({ type: 'error', text: 'Upload failed.' });
     } finally {
       setIsUploading(false);
-      setTimeout(() => {
-        setStatusMessage(null);
-      }, 4000);
     }
   };
 
@@ -169,17 +151,13 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
         ) : (
           <div className="py-2 space-y-2">
             <div className="w-10 h-10 mx-auto rounded-xl bg-[#eedc82]/30 dark:bg-[#eedc82]/15 text-[#6b5e10] dark:text-[#eedc82] flex items-center justify-center">
-              {isUploading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Upload className="w-5 h-5" />
-              )}
+              {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
             </div>
             <div>
               <p className="text-xs font-bold text-[#1c1c18] dark:text-[#fcfbf7]">
                 {isUploading ? 'Uploading to Cloudinary...' : 'Click or Drag & Drop Image'}
               </p>
-              <p className="text-[10px] text-[#7c7767] dark:text-[#aca596] mt-0.5">
+              <p className="text-[10px] text-[#7c7767] dark:text-[#aca586] mt-0.5">
                 Supports JPG, PNG, WebP up to 10MB
               </p>
             </div>
@@ -208,9 +186,7 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
       )}
 
       {effectiveHelperText && (
-        <p className="text-[10px] text-[#7c7767] dark:text-[#aca596]">
-          {effectiveHelperText}
-        </p>
+        <p className="text-[10px] text-[#7c7767] dark:text-[#aca596]">{effectiveHelperText}</p>
       )}
     </div>
   );

@@ -11,13 +11,20 @@ export interface CloudinaryUploadResponse {
   error?: string;
 }
 
+/**
+ * Retrieve Cloudinary configuration.
+ * First tries Supabase site_settings, then falls back to Vite env variables.
+ */
 export async function getCloudinaryConfig(): Promise<{ cloudName: string; uploadPreset: string }> {
-  // Load from Supabase site_settings first, then fall back to env variables.
+  // Load from Supabase site_settings if possible
   const { supabase } = await import('./supabaseClient').then(m => ({ supabase: m.getSupabaseClient?.() }));
   let cloudName = '';
   let uploadPreset = '';
   if (supabase) {
-    const { data, error } = await supabase.from('site_settings').select('value').in('id', ['ngdc_cloudinary_cloud_name', 'ngdc_cloudinary_upload_preset']);
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('id, value')
+      .in('id', ['ngdc_cloudinary_cloud_name', 'ngdc_cloudinary_upload_preset']);
     if (!error && Array.isArray(data)) {
       data.forEach((row: any) => {
         if (row.id === 'ngdc_cloudinary_cloud_name') cloudName = row.value;

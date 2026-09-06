@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useAppStore } from './store/useAppStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronUp } from 'lucide-react';
 import { TabType, NoticeItem, BlogItem, MemoryItem } from './types';
@@ -32,18 +33,23 @@ import {
 } from './components/Modals';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabType>('home');
-  const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
-  const [selectedBlog, setSelectedBlog] = useState<BlogItem | null>(null);
-  const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null);
+  const { activeTab, setActiveTab, selectedNotice, setSelectedNotice, selectedBlog, setSelectedBlog, selectedMemory, setSelectedMemory } = useAppStore(state => ({
+    activeTab: state.activeTab,
+    setActiveTab: state.setActiveTab,
+    selectedNotice: state.selectedNotice,
+    setSelectedNotice: state.setSelectedNotice,
+    selectedBlog: state.selectedBlog,
+    setSelectedBlog: state.setSelectedBlog,
+    selectedMemory: state.selectedMemory,
+    setSelectedMemory: state.setSelectedMemory,
+  }));
 
-  // Admin authentication state
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('ngdc_admin_auth') === 'true';
-    }
-    return false;
-  });
+  // Admin authentication state from store
+  const { isAdminAuthenticated, setIsAdminAuthenticated, validateAdminToken } = useAppStore(state => ({
+    isAdminAuthenticated: state.isAdminAuthenticated,
+    setIsAdminAuthenticated: state.setIsAdminAuthenticated,
+    validateAdminToken: state.validateAdminToken,
+  }));
 
   // Default light theme (dark mode button removed)
   const isDarkMode = false;
@@ -57,16 +63,24 @@ export default function App() {
     }
   }, []);
 
-  // Modals state
-  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
-  const [isCadetAuthOpen, setIsCadetAuthOpen] = useState(false);
+  // Modals state from store
+  const { isJoinModalOpen, setJoinModalOpen, isCadetAuthOpen, setCadetAuthOpen, isUniformModalOpen, setUniformModalOpen, isAdminLoginOpen, setAdminLoginOpen, showLegalModal, setShowLegalModal, showBackToTop, setShowBackToTop } = useAppStore(state => ({
+    isJoinModalOpen: state.isJoinModalOpen,
+    setJoinModalOpen: state.setJoinModalOpen,
+    isCadetAuthOpen: state.isCadetAuthOpen,
+    setCadetAuthOpen: state.setCadetAuthOpen,
+    isUniformModalOpen: state.isUniformModalOpen,
+    setUniformModalOpen: state.setUniformModalOpen,
+    isAdminLoginOpen: state.isAdminLoginOpen,
+    setAdminLoginOpen: state.setAdminLoginOpen,
+    showLegalModal: state.showLegalModal,
+    setShowLegalModal: state.setShowLegalModal,
+    showBackToTop: state.showBackToTop,
+    setShowBackToTop: state.setShowBackToTop,
+  }));
   const [cadetAuthMode, setCadetAuthMode] = useState<'login' | 'register'>('login');
-  const [isUniformModalOpen, setIsUniformModalOpen] = useState(false);
-  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
-  const [showLegalModal, setShowLegalModal] = useState<string | null>(null);
-  const [showBackToTop, setShowBackToTop] = useState(false);
 
-  // Monitor scroll for back-to-top floating button
+  // Monitor scroll for back-to-top floating button (updates store)
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 350) {
@@ -222,7 +236,7 @@ export default function App() {
           if (sessionStorage.getItem('ngdc_admin_auth') === 'true') {
             setIsAdminAuthenticated(true);
           } else {
-            setIsAdminLoginOpen(true);
+            setAdminLoginOpen(true);
           }
         }}
         onOpenPrivacyModal={() => setShowLegalModal('Privacy Policy')}
@@ -277,9 +291,9 @@ export default function App() {
 
       <AdminLoginModal
         isOpen={isAdminLoginOpen}
-        onClose={() => setIsAdminLoginOpen(false)}
+        onClose={() => setAdminLoginOpen(false)}
         onSuccess={() => {
-          setIsAdminLoginOpen(false);
+          setAdminLoginOpen(false);
           setIsAdminAuthenticated(true);
         }}
       />
