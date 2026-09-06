@@ -3,6 +3,7 @@ import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
 import { TabType, NoticeItem, BlogItem, MemoryItem } from '../types';
 import { ASSETS, NOTICES_DATA, BLOGS_DATA, MEMORIES_DATA, HERO_SLIDES_DATA } from '../data/bnccData';
 import { useAdminData, DEFAULT_ABOUT_OVERVIEW } from '../context/AdminDataContext';
+import { getOptimizedImageUrl } from '../utils/cloudinary';
 import { 
   Megaphone, 
   FileText, 
@@ -68,7 +69,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [slideDirection, setSlideDirection] = useState<number>(1);
   const [isSliderPaused, setIsSliderPaused] = useState(false);
-  const totalSlides = activeSlides.length;
+  const totalSlides = activeSlides.length > 0 ? activeSlides.length : 1;
+
+  // Clamp currentSlideIndex if slide array length changes
+  useEffect(() => {
+    if (currentSlideIndex >= totalSlides) {
+      setCurrentSlideIndex(0);
+    }
+  }, [totalSlides, currentSlideIndex]);
 
   const nextSlide = useCallback(() => {
     setSlideDirection(1);
@@ -150,7 +158,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     }),
   };
 
-  const currentSlide = activeSlides[currentSlideIndex % totalSlides] || activeSlides[0];
+  const currentSlide = activeSlides[currentSlideIndex % totalSlides] || activeSlides[0] || HERO_SLIDES_DATA[0];
 
   // Contact form state
   const [contactName, setContactName] = useState('');
@@ -197,9 +205,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
         className="w-full relative h-[60vh] sm:h-[65vh] md:h-[75vh] min-h-[420px] bg-[#1a1915] overflow-hidden rounded-2xl md:rounded-3xl shadow-sm border border-[#cdc6b3]/50 dark:border-white/10 mx-auto select-none group"
       >
         {/* Animated Image Slides */}
-        <AnimatePresence initial={false} custom={slideDirection}>
+        <AnimatePresence initial={false} custom={slideDirection} mode="popLayout">
           <motion.div
-            key={currentSlide.id}
+            key={currentSlide?.id ? `hero-slide-${currentSlide.id}` : `hero-slide-idx-${currentSlideIndex}`}
             custom={slideDirection}
             variants={slideVariants}
             initial="enter"
@@ -212,8 +220,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
               className="w-full h-full"
             >
               <img
-                src={currentSlide.imageUrl}
-                alt={currentSlide.altText}
+                src={getOptimizedImageUrl(currentSlide?.imageUrl || ASSETS.heroMain, 1600)}
+                alt={currentSlide?.altText || currentSlide?.title || 'NGDC BNCC Platoon'}
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (target.src !== ASSETS.heroMain) {
+                    target.src = ASSETS.heroMain;
+                  }
+                }}
                 className="w-full h-full object-cover object-center transform scale-100 group-hover:scale-103 transition-transform duration-1000 ease-out"
                 referrerPolicy="no-referrer"
               />
@@ -227,14 +241,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
         {/* Top Floating Badge & Slide Counter */}
         <div className="absolute top-4 left-4 sm:top-6 sm:left-6 md:top-8 md:left-8 z-20 flex items-center gap-3">
           <motion.div
-            key={`badge-${currentSlide.id}`}
+            key={currentSlide?.id ? `badge-${currentSlide.id}` : `badge-${currentSlideIndex}`}
             initial={{ opacity: 0, y: -10, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.4 }}
             className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#eedc82] text-[#1c1c18] font-bold text-[11px] sm:text-xs rounded-full uppercase tracking-wider shadow-sm"
           >
             <Shield className="w-3.5 h-3.5 text-[#6b5e10]" />
-            <span>{currentSlide.badge}</span>
+            <span>{currentSlide?.badge || 'NGDC BNCC'}</span>
           </motion.div>
 
           <div className="bg-black/40 backdrop-blur-md border border-white/15 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium text-white/90">
@@ -268,17 +282,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
         >
           <AnimatePresence mode="wait">
             <motion.div
-              key={`text-${currentSlide.id}`}
+              key={currentSlide?.id ? `text-${currentSlide.id}` : `text-${currentSlideIndex}`}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
             >
               <h2 className="text-xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight drop-shadow-md">
-                {currentSlide.title}
+                {currentSlide?.title || 'NGDC Platoon'}
               </h2>
               <p className="text-white/90 text-xs sm:text-sm md:text-base mt-2 font-medium leading-relaxed drop-shadow-xs max-w-xl">
-                {currentSlide.subtitle}
+                {currentSlide?.subtitle || ''}
               </p>
             </motion.div>
           </AnimatePresence>
@@ -286,11 +300,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
         {/* Interactive Indicator Dots & Progress Bars */}
         <div className="absolute bottom-4 inset-x-0 z-20 flex items-center justify-center gap-1.5 sm:gap-2">
-          {HERO_SLIDES_DATA.map((slide, idx) => {
-            const isActive = idx === currentSlideIndex;
+          {activeSlides.map((slide, idx) => {
+            const isActive = idx === (currentSlideIndex % totalSlides);
             return (
               <button
-                key={slide.id}
+                key={slide.id || `dot-${idx}`}
                 id={`btn-hero-dot-${idx}`}
                 onClick={() => goToSlide(idx)}
                 aria-label={`Go to Slide ${idx + 1}`}
@@ -304,7 +318,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   <motion.div
                     initial={{ width: '0%' }}
                     animate={{ width: '100%' }}
-                    transition={{ duration: 5, ease: 'linear' }}
+                    transition={{ duration: 3, ease: 'linear' }}
                     className="h-full bg-[#1c1c18]/30 absolute top-0 left-0"
                   />
                 )}

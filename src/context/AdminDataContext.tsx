@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import {
   HeroSlide,
@@ -733,6 +733,13 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   };
 
+  // Timestamp tracker for local writes to prevent broadcast echo loops from overwriting active admin edits
+  const lastLocalWriteTimestamps = useRef<Record<string, number>>({});
+  const saveSettingWithTimestamp = (key: string, value: any) => {
+    lastLocalWriteTimestamps.current[key] = Date.now();
+    upsertSiteSetting(key, value);
+  };
+
   // --- Admin PIN (Default: 1721) ---
   
   // --- Supabase Site Settings Initialization ---
@@ -772,40 +779,45 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     loadSettings();
 
-
-      const unsubscribeSettings = subscribeToSiteSettingsUpdates((payload) => {
-        if (payload.new && payload.new.id) {
-          const key = payload.new.id;
-          const val = payload.new.value;
-          
-          if (key === 'ngdc_hero_slides') setHeroSlides(parseArray(val));
-          else if (key === 'ngdc_principal_message') setPrincipalMessage(val);
-          else if (key === 'ngdc_vice_principal_message') setVicePrincipalMessage(val);
-          else if (key === 'ngdc_about_overview') setAboutOverview(parseAboutOverview(val));
-          else if (key === 'ngdc_bncco1_message') setBncco1Message(val);
-          else if (key === 'ngdc_bncco2_message') setBncco2Message(val);
-          else if (key === 'ngdc_platoon_commander_message') setPlatoonCommanderMessage(val);
-          else if (key === 'ngdc_about_sections') setAboutSections(parseArray(val));
-          else if (key === 'ngdc_cadet_ranks') setCadetRanks(parseArray(val));
-          else if (key === 'ngdc_trainings') setTrainingAnnouncements(parseArray(val));
-          else if (key === 'ngdc_training_form_fields') setTrainingFormFields(parseArray(val));
-          else if (key === 'ngdc_training_submissions') setTrainingSubmissions(parseArray(val));
-          else if (key === 'ngdc_notices') setNotices(parseArray(val));
-          else if (key === 'ngdc_blogs') setBlogs(parseArray(val));
-          else if (key === 'ngdc_memories') setMemories(parseArray(val));
-          else if (key === 'ngdc_cadet_reg_fields') setCadetRegFields(parseArray(val));
-          else if (key === 'ngdc_honor_entries_3cat') setHonorEntries(parseArray(val));
-          else if (key === 'ngdc_contact_config') setContactConfig(val);
-          else if (key === 'ngdc_contact_messages') setContactMessages(parseArray(val));
-          else if (key === 'ngdc_recruitment_open') setIsRecruitmentOpen(val === 'true');
-          else if (key === 'ngdc_recruitment_announcement') setRecruitmentAnnouncement(val);
-          else if (key === 'ngdc_recruitment_title') setRecruitmentNoticeTitle(val);
-          else if (key === 'ngdc_recruitment_form_fields') setRecruitmentFormFields(parseArray(val));
-          else if (key === 'ngdc_recruitment_applicants') setRecruitmentApplicants(parseArray(val));
-          else if (key === 'ngdc_recruitment_signatories') setRecruitmentSignatories(val);
-          else if (key === 'ngdc_footer_config') setFooterConfig(val);
+    const unsubscribeSettings = subscribeToSiteSettingsUpdates((payload) => {
+      if (payload.new && payload.new.id) {
+        const key = payload.new.id;
+        const val = payload.new.value;
+        
+        // Ignore broadcast echoes of changes initiated recently by this client (within 3500ms)
+        const lastWrite = lastLocalWriteTimestamps.current[key];
+        if (lastWrite && Date.now() - lastWrite < 3500) {
+          return;
         }
-      });
+        
+        if (key === 'ngdc_hero_slides') setHeroSlides(parseArray(val));
+        else if (key === 'ngdc_principal_message') setPrincipalMessage(val);
+        else if (key === 'ngdc_vice_principal_message') setVicePrincipalMessage(val);
+        else if (key === 'ngdc_about_overview') setAboutOverview(parseAboutOverview(val));
+        else if (key === 'ngdc_bncco1_message') setBncco1Message(val);
+        else if (key === 'ngdc_bncco2_message') setBncco2Message(val);
+        else if (key === 'ngdc_platoon_commander_message') setPlatoonCommanderMessage(val);
+        else if (key === 'ngdc_about_sections') setAboutSections(parseArray(val));
+        else if (key === 'ngdc_cadet_ranks') setCadetRanks(parseArray(val));
+        else if (key === 'ngdc_trainings') setTrainingAnnouncements(parseArray(val));
+        else if (key === 'ngdc_training_form_fields') setTrainingFormFields(parseArray(val));
+        else if (key === 'ngdc_training_submissions') setTrainingSubmissions(parseArray(val));
+        else if (key === 'ngdc_notices') setNotices(parseArray(val));
+        else if (key === 'ngdc_blogs') setBlogs(parseArray(val));
+        else if (key === 'ngdc_memories') setMemories(parseArray(val));
+        else if (key === 'ngdc_cadet_reg_fields') setCadetRegFields(parseArray(val));
+        else if (key === 'ngdc_honor_entries_3cat') setHonorEntries(parseArray(val));
+        else if (key === 'ngdc_contact_config') setContactConfig(val);
+        else if (key === 'ngdc_contact_messages') setContactMessages(parseArray(val));
+        else if (key === 'ngdc_recruitment_open') setIsRecruitmentOpen(val === 'true');
+        else if (key === 'ngdc_recruitment_announcement') setRecruitmentAnnouncement(val);
+        else if (key === 'ngdc_recruitment_title') setRecruitmentNoticeTitle(val);
+        else if (key === 'ngdc_recruitment_form_fields') setRecruitmentFormFields(parseArray(val));
+        else if (key === 'ngdc_recruitment_applicants') setRecruitmentApplicants(parseArray(val));
+        else if (key === 'ngdc_recruitment_signatories') setRecruitmentSignatories(val);
+        else if (key === 'ngdc_footer_config') setFooterConfig(val);
+      }
+    });
 
     return () => { unsubscribeSettings(); };
   }, []);
@@ -872,7 +884,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const setHeroSlidesAndSave = (val: any) => {
     setHeroSlides((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
-      upsertSiteSetting('ngdc_hero_slides', next);
+      saveSettingWithTimestamp('ngdc_hero_slides', next);
       return next;
     });
   };
@@ -880,7 +892,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const setPrincipalMessageAndSave = (val: any) => {
     setPrincipalMessage((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
-      upsertSiteSetting('ngdc_principal_message', next);
+      saveSettingWithTimestamp('ngdc_principal_message', next);
       return next;
     });
   };
@@ -888,7 +900,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const setVicePrincipalMessageAndSave = (val: any) => {
     setVicePrincipalMessage((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
-      upsertSiteSetting('ngdc_vice_principal_message', next);
+      saveSettingWithTimestamp('ngdc_vice_principal_message', next);
       return next;
     });
   };
@@ -897,7 +909,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setAboutOverview((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
       const safe = parseAboutOverview(next);
-      upsertSiteSetting('ngdc_about_overview', safe);
+      saveSettingWithTimestamp('ngdc_about_overview', safe);
       return safe;
     });
   };
@@ -905,7 +917,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const setBncco1MessageAndSave = (val: any) => {
     setBncco1Message((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
-      upsertSiteSetting('ngdc_bncco1_message', next);
+      saveSettingWithTimestamp('ngdc_bncco1_message', next);
       return next;
     });
   };
@@ -913,7 +925,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const setBncco2MessageAndSave = (val: any) => {
     setBncco2Message((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
-      upsertSiteSetting('ngdc_bncco2_message', next);
+      saveSettingWithTimestamp('ngdc_bncco2_message', next);
       return next;
     });
   };
@@ -921,7 +933,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const setPlatoonCommanderMessageAndSave = (val: any) => {
     setPlatoonCommanderMessage((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
-      upsertSiteSetting('ngdc_platoon_commander_message', next);
+      saveSettingWithTimestamp('ngdc_platoon_commander_message', next);
       return next;
     });
   };
@@ -1911,6 +1923,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const memoizedRecruitmentConfig = useMemo(() => ({
+    noticeTitle: recruitmentNoticeTitle,
+    batchName: recruitmentAnnouncement?.batch || '',
+    isOpen: isRecruitmentOpen,
+  }), [recruitmentNoticeTitle, recruitmentAnnouncement?.batch, isRecruitmentOpen]);
+
   return (
     <AdminDataContext.Provider
       value={{
@@ -2006,11 +2024,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setRecruitmentNoticeTitle,
         recruitmentAnnouncement,
         updateRecruitmentAnnouncement,
-        recruitmentConfig: {
-          noticeTitle: recruitmentNoticeTitle,
-          batchName: recruitmentAnnouncement.batch,
-          isOpen: isRecruitmentOpen,
-        },
+        recruitmentConfig: memoizedRecruitmentConfig,
         recruitmentFormFields,
         setRecruitmentFormFields,
         recruitmentFields: recruitmentFormFields,

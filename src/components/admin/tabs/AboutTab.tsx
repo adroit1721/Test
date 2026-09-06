@@ -42,11 +42,11 @@ export const AboutTab: React.FC = () => {
     content: '',
   });
 
-  useEffect(() => {
-    if (aboutOverview) {
-      setOverviewForm(aboutOverview);
-    }
-  }, [aboutOverview]);
+  // Dirty state tracking to prevent server broadcasts from overwriting unsaved user edits
+  const [isOverviewDirty, setIsOverviewDirty] = useState(false);
+  const [isBncco1Dirty, setIsBncco1Dirty] = useState(false);
+  const [isBncco2Dirty, setIsBncco2Dirty] = useState(false);
+  const [isCommanderDirty, setIsCommanderDirty] = useState(false);
 
   // Local form state for BNCCO 1
   const [bncco1Form, setBncco1Form] = useState(bncco1Message);
@@ -56,6 +56,31 @@ export const AboutTab: React.FC = () => {
 
   // Local form state for Platoon Commander
   const [commanderForm, setCommanderForm] = useState(platoonCommanderMessage);
+
+  // Sync state if context changes externally ONLY when user has not dirtied the form
+  useEffect(() => {
+    if (!isOverviewDirty && aboutOverview) {
+      setOverviewForm(aboutOverview);
+    }
+  }, [aboutOverview, isOverviewDirty]);
+
+  useEffect(() => {
+    if (!isBncco1Dirty && bncco1Message) {
+      setBncco1Form(bncco1Message);
+    }
+  }, [bncco1Message, isBncco1Dirty]);
+
+  useEffect(() => {
+    if (!isBncco2Dirty && bncco2Message) {
+      setBncco2Form(bncco2Message);
+    }
+  }, [bncco2Message, isBncco2Dirty]);
+
+  useEffect(() => {
+    if (!isCommanderDirty && platoonCommanderMessage) {
+      setCommanderForm(platoonCommanderMessage);
+    }
+  }, [platoonCommanderMessage, isCommanderDirty]);
 
   // Status message for save feedback
   const [saveToast, setSaveToast] = useState<string | null>(null);
@@ -69,12 +94,14 @@ export const AboutTab: React.FC = () => {
   const handleSaveOverview = (e: React.FormEvent) => {
     e.preventDefault();
     updateAboutOverview(overviewForm);
+    setIsOverviewDirty(false);
     showToast('About Our Platoon overview saved successfully!');
   };
 
   const handleResetOverview = () => {
     if (confirm('Reset About Our Platoon narrative to factory default?')) {
       resetAboutOverview();
+      setIsOverviewDirty(false);
       setOverviewForm(aboutOverview);
       showToast('Overview reset to factory defaults.');
     }
@@ -84,12 +111,14 @@ export const AboutTab: React.FC = () => {
   const handleSaveBncco1 = (e: React.FormEvent) => {
     e.preventDefault();
     updateBncco1Message(bncco1Form);
+    setIsBncco1Dirty(false);
     showToast('Message from BNCCO 1 saved successfully!');
   };
 
   const handleResetBncco1 = () => {
     if (confirm('Reset BNCCO 1 message to default?')) {
       resetBncco1Message();
+      setIsBncco1Dirty(false);
       setBncco1Form(bncco1Message);
       showToast('BNCCO 1 message reset to default.');
     }
@@ -99,12 +128,14 @@ export const AboutTab: React.FC = () => {
   const handleSaveBncco2 = (e: React.FormEvent) => {
     e.preventDefault();
     updateBncco2Message(bncco2Form);
+    setIsBncco2Dirty(false);
     showToast('Message from BNCCO 2 saved successfully!');
   };
 
   const handleResetBncco2 = () => {
     if (confirm('Reset BNCCO 2 message to default?')) {
       resetBncco2Message();
+      setIsBncco2Dirty(false);
       setBncco2Form(bncco2Message);
       showToast('BNCCO 2 message reset to default.');
     }
@@ -114,15 +145,37 @@ export const AboutTab: React.FC = () => {
   const handleSaveCommander = (e: React.FormEvent) => {
     e.preventDefault();
     updatePlatoonCommanderMessage(commanderForm);
+    setIsCommanderDirty(false);
     showToast('Message from Platoon Commander saved successfully!');
   };
 
   const handleResetCommander = () => {
     if (confirm('Reset Platoon Commander message to default?')) {
       resetPlatoonCommanderMessage();
+      setIsCommanderDirty(false);
       setCommanderForm(platoonCommanderMessage);
       showToast('Platoon Commander message reset to default.');
     }
+  };
+
+  const updateOverviewField = (field: string, value: any) => {
+    setOverviewForm((prev) => ({ ...prev, [field]: value }));
+    setIsOverviewDirty(true);
+  };
+
+  const updateBncco1Field = (field: string, value: any) => {
+    setBncco1Form((prev) => ({ ...prev, [field]: value }));
+    setIsBncco1Dirty(true);
+  };
+
+  const updateBncco2Field = (field: string, value: any) => {
+    setBncco2Form((prev) => ({ ...prev, [field]: value }));
+    setIsBncco2Dirty(true);
+  };
+
+  const updateCommanderField = (field: string, value: any) => {
+    setCommanderForm((prev) => ({ ...prev, [field]: value }));
+    setIsCommanderDirty(true);
   };
 
   return (

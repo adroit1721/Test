@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAdminData } from '../../../context/AdminDataContext';
 import { HeroSlide, ExecutiveMessageConfig } from '../../../types';
+import { CloudinaryUploader } from '../../common/CloudinaryUploader';
 import {
   Plus,
   Trash2,
@@ -48,22 +49,28 @@ export const HomeTab: React.FC = () => {
     isActive: true,
   });
 
-  // Principal Form State
+  // Principal Form State & Dirty Tracking
   const [principalForm, setPrincipalForm] = useState<ExecutiveMessageConfig>({ ...principalMessage });
   const [principalSavedToast, setPrincipalSavedToast] = useState(false);
+  const [isPrincipalDirty, setIsPrincipalDirty] = useState(false);
 
-  // Vice-Principal Form State
+  // Vice-Principal Form State & Dirty Tracking
   const [vicePrincipalForm, setVicePrincipalForm] = useState<ExecutiveMessageConfig>({ ...vicePrincipalMessage });
   const [vicePrincipalSavedToast, setVicePrincipalSavedToast] = useState(false);
+  const [isVicePrincipalDirty, setIsVicePrincipalDirty] = useState(false);
 
-  // Sync state if context changes externally
+  // Sync state if context changes externally ONLY when form is not dirty
   useEffect(() => {
-    setPrincipalForm({ ...principalMessage });
-  }, [principalMessage]);
+    if (!isPrincipalDirty && principalMessage) {
+      setPrincipalForm({ ...principalMessage });
+    }
+  }, [principalMessage, isPrincipalDirty]);
 
   useEffect(() => {
-    setVicePrincipalForm({ ...vicePrincipalMessage });
-  }, [vicePrincipalMessage]);
+    if (!isVicePrincipalDirty && vicePrincipalMessage) {
+      setVicePrincipalForm({ ...vicePrincipalMessage });
+    }
+  }, [vicePrincipalMessage, isVicePrincipalDirty]);
 
   // Slide Handlers
   const handleStartAddSlide = () => {
@@ -145,6 +152,7 @@ export const HomeTab: React.FC = () => {
   const handleSavePrincipal = (e: React.FormEvent) => {
     e.preventDefault();
     updatePrincipalMessage(principalForm);
+    setIsPrincipalDirty(false);
     setPrincipalSavedToast(true);
     setTimeout(() => setPrincipalSavedToast(false), 3500);
   };
@@ -153,6 +161,7 @@ export const HomeTab: React.FC = () => {
   const handleSaveVicePrincipal = (e: React.FormEvent) => {
     e.preventDefault();
     updateVicePrincipalMessage(vicePrincipalForm);
+    setIsVicePrincipalDirty(false);
     setVicePrincipalSavedToast(true);
     setTimeout(() => setVicePrincipalSavedToast(false), 3500);
   };
@@ -293,44 +302,14 @@ export const HomeTab: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                      Slide Image URL
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="https://... or upload below"
+                    <CloudinaryUploader
                       value={slideFormData.imageUrl}
-                      onChange={(e) => setSlideFormData({ ...slideFormData, imageUrl: e.target.value })}
-                      className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-mono"
+                      onChange={(url) => setSlideFormData((prev) => ({ ...prev, imageUrl: url }))}
+                      label="Slide Photo (Compressed & CDN Optimized)"
+                      helperText="Auto-compresses large photos before uploading directly to Cloudinary."
+                      aspectRatio="banner"
                     />
-                    <div className="mt-2 flex items-center gap-2">
-                      <label className="japandi-btn-secondary text-[11px] py-1.5 px-3 flex items-center gap-1.5 cursor-pointer">
-                        <UploadCloud className="w-3.5 h-3.5 text-[#6b5e10] dark:text-[#eedc82]" />
-                        <span>Upload Local Photo</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleSlideFileUpload}
-                          className="hidden"
-                        />
-                      </label>
-                      <span className="text-[10px] text-[#7c7767]">Supported: JPG, PNG, WebP</span>
-                    </div>
                   </div>
-
-                  {slideFormData.imageUrl && (
-                    <div className="relative h-28 rounded-2xl overflow-hidden border border-[#cdc6b3] dark:border-[#423e35]">
-                      <img
-                        src={slideFormData.imageUrl}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/40 flex items-end p-2.5 text-white">
-                        <span className="text-[11px] font-bold">{slideFormData.title || 'Slide Preview'}</span>
-                      </div>
-                    </div>
-                  )}
 
                   <div className="flex items-center gap-2 pt-1">
                     <input
@@ -541,31 +520,18 @@ export const HomeTab: React.FC = () => {
                 </div>
               </div>
 
-              {/* Photo Upload & URL */}
+              {/* Photo Upload with Cloudinary */}
               <div>
-                <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                  Principal's Photo (Upload local file or specify URL)
-                </label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    required
-                    placeholder="https://... or upload below"
-                    value={principalForm.photoUrl}
-                    onChange={(e) => setPrincipalForm({ ...principalForm, photoUrl: e.target.value })}
-                    className="flex-1 bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-mono text-[11px]"
-                  />
-                  <label className="japandi-btn-secondary text-[11px] py-2 px-3.5 flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap">
-                    <UploadCloud className="w-4 h-4 text-[#6b5e10] dark:text-[#eedc82]" />
-                    <span>Upload Photo</span>
-                    <input
-                      type="file"
-                      accept="image/*,.jfif"
-                      onChange={handlePrincipalPhotoUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
+                <CloudinaryUploader
+                  value={principalForm.photoUrl}
+                  onChange={(url) => {
+                    setPrincipalForm((prev) => ({ ...prev, photoUrl: url }));
+                    setIsPrincipalDirty(true);
+                  }}
+                  label="Principal's Portrait"
+                  helperText="Compressed client-side and served via fast Cloudinary CDN."
+                  aspectRatio="square"
+                />
               </div>
 
               {/* Highlighted Quote */}
@@ -776,31 +742,18 @@ export const HomeTab: React.FC = () => {
                 </div>
               </div>
 
-              {/* Photo Upload & URL */}
+              {/* Photo Upload with Cloudinary */}
               <div>
-                <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                  Vice-Principal's Photo (Upload local file or specify URL)
-                </label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    required
-                    placeholder="https://... or upload below"
-                    value={vicePrincipalForm.photoUrl}
-                    onChange={(e) => setVicePrincipalForm({ ...vicePrincipalForm, photoUrl: e.target.value })}
-                    className="flex-1 bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-mono text-[11px]"
-                  />
-                  <label className="japandi-btn-secondary text-[11px] py-2 px-3.5 flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap">
-                    <UploadCloud className="w-4 h-4 text-[#6b5e10] dark:text-[#eedc82]" />
-                    <span>Upload Photo</span>
-                    <input
-                      type="file"
-                      accept="image/*,.jfif"
-                      onChange={handleVicePrincipalPhotoUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
+                <CloudinaryUploader
+                  value={vicePrincipalForm.photoUrl}
+                  onChange={(url) => {
+                    setVicePrincipalForm((prev) => ({ ...prev, photoUrl: url }));
+                    setIsVicePrincipalDirty(true);
+                  }}
+                  label="Vice-Principal's Portrait"
+                  helperText="Compressed client-side and served via fast Cloudinary CDN."
+                  aspectRatio="square"
+                />
               </div>
 
               {/* Highlighted Quote */}

@@ -1,7 +1,7 @@
 // src/components/common/CloudinaryUploader.tsx
 import React, { useState, useRef } from 'react';
 import { Upload, Loader2, CheckCircle2, AlertCircle, X, Cloud } from 'lucide-react';
-import { uploadImageToCloudinary } from '../../utils/cloudinary';
+import { uploadImageToCloudinary, getOptimizedImageUrl } from '../../utils/cloudinary';
 
 interface CloudinaryUploaderProps {
   value?: string;
@@ -29,37 +29,55 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
   className = '',
 }) => {
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const displayImage = value || currentImageUrl || '';
+  const displayImage = localPreview || value || currentImageUrl || '';
   const effectiveHelperText = helperText || helpText;
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    if (!validTypes.includes(file.type) && !file.type.startsWith('image/')) {
       setStatusMessage({ type: 'error', text: 'Invalid file type. Only JPG, PNG, WebP allowed.' });
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setStatusMessage({ type: 'error', text: 'File size exceeds 10MB limit.' });
+    if (file.size > 15 * 1024 * 1024) {
+      setStatusMessage({ type: 'error', text: 'File size exceeds 15MB limit.' });
       return;
     }
+
+    // Instant local preview for immediate visual feedback
+    const previewUrl = URL.createObjectURL(file);
+    setLocalPreview(previewUrl);
+
     setIsUploading(true);
-    setStatusMessage({ type: 'info', text: 'Uploading to Cloudinary...' });
+    setUploadProgress(10);
+    setStatusMessage({ type: 'info', text: 'Compressing & uploading to Cloudinary...' });
+
     try {
-      const uploadRes = await uploadImageToCloudinary(file, folder);
+      const uploadRes = await uploadImageToCloudinary(file, folder, (percent) => {
+        setUploadProgress(percent);
+        setStatusMessage({ type: 'info', text: `Uploading: ${percent}%...` });
+      });
+
       setStatusMessage({ type: 'success', text: 'Uploaded to Cloudinary CDN!' });
+      setLocalPreview(null);
       if (typeof onChange === 'function') onChange(uploadRes.url);
       if (typeof onUploadComplete === 'function') onUploadComplete(uploadRes.url);
-    } catch (err) {
-      console.error(err);
-      setStatusMessage({ type: 'error', text: 'Upload failed: Cloudinary configuration missing.' });
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      setStatusMessage({
+        type: 'error',
+        text: err?.message || 'Upload failed. Please check network and Cloudinary settings.',
+      });
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -91,7 +109,7 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
           </label>
           <span className="text-[10px] flex items-center gap-1 font-mono text-[#7c7767] dark:text-[#aca596]">
             <Cloud className="w-3 h-3 text-[#6b5e10] dark:text-[#eedc82]" />
-            'Cloudinary CDN Active'
+            Cloudinary CDN
           </span>
         </div>
       )}
@@ -121,30 +139,39 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
           <div className="space-y-3">
             <div className="relative mx-auto inline-block group">
               <img
-                src={displayImage}
+                src={getOptimizedImageUrl(displayImage, 400)}
                 alt="Upload preview"
                 referrerPolicy="no-referrer"
                 className={`mx-auto rounded-xl object-cover border border-[#cdc6b3] dark:border-[#423e35] shadow-xs ${
                   aspectRatio === 'banner'
                     ? 'w-full max-h-36 object-contain bg-white dark:bg-black/20'
                     : 'w-24 h-24 object-cover'
-                }`}
+                } ${isUploading ? 'opacity-50 blur-[1px]' : ''}`}
               />
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (typeof onChange === 'function') onChange('');
-                  if (typeof onUploadComplete === 'function') onUploadComplete('');
-                }}
-                className="absolute -top-2 -right-2 p-1.5 rounded-full bg-red-600 text-white shadow-md hover:bg-red-700 transition-colors"
-                title="Remove Image"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+              {isUploading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 rounded-xl text-white">
+                  <Loader2 className="w-5 h-5 animate-spin mb-1 text-[#eedc82]" />
+                  <span className="text-[10px] font-bold">{uploadProgress}%</span>
+                </div>
+              )}
+              {!isUploading && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLocalPreview(null);
+                    if (typeof onChange === 'function') onChange('');
+                    if (typeof onUploadComplete === 'function') onUploadComplete('');
+                  }}
+                  className="absolute -top-2 -right-2 p-1.5 rounded-full bg-red-600 text-white shadow-md hover:bg-red-700 transition-colors"
+                  title="Remove Image"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             <p className="text-[11px] text-[#695c4e] dark:text-[#aca596] font-medium">
-              Click or drag another image to replace
+              {isUploading ? 'Compressing & uploading...' : 'Click or drag another image to replace'}
             </p>
           </div>
         ) : (
@@ -154,10 +181,10 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
             </div>
             <div>
               <p className="text-xs font-bold text-[#1c1c18] dark:text-[#fcfbf7]">
-                {isUploading ? 'Uploading to Cloudinary...' : 'Click or Drag & Drop Image'}
+                {isUploading ? `Uploading (${uploadProgress}%)...` : 'Click or Drag & Drop Image'}
               </p>
               <p className="text-[10px] text-[#7c7767] dark:text-[#aca586] mt-0.5">
-                Supports JPG, PNG, WebP up to 10MB
+                Auto-compressed JPG, PNG, WebP up to 15MB
               </p>
             </div>
           </div>
