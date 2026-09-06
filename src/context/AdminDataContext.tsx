@@ -725,37 +725,38 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     async function loadSettings() {
       const settings = await fetchSiteSettings();
       if (settings) {
+        // Use plain setters here (NOT ...AndSave) so we do NOT write back to Supabase on load
         if (settings['ngdc_admin_service_pin']) setServicePin(settings['ngdc_admin_service_pin']);
-        if (settings['ngdc_hero_slides']) setHeroSlidesAndSave(parseArray(settings['ngdc_hero_slides']));
-        if (settings['ngdc_principal_message']) setPrincipalMessageAndSave(settings['ngdc_principal_message']);
-        if (settings['ngdc_vice_principal_message']) setVicePrincipalMessageAndSave(settings['ngdc_vice_principal_message']);
-        if (settings['ngdc_about_overview']) setAboutOverviewAndSave(settings['ngdc_about_overview']);
-        if (settings['ngdc_bncco1_message']) setBncco1MessageAndSave(settings['ngdc_bncco1_message']);
-        if (settings['ngdc_bncco2_message']) setBncco2MessageAndSave(settings['ngdc_bncco2_message']);
-        if (settings['ngdc_platoon_commander_message']) setPlatoonCommanderMessageAndSave(settings['ngdc_platoon_commander_message']);
-        if (settings['ngdc_about_sections']) setAboutSectionsAndSave(parseArray(settings['ngdc_about_sections']));
-        if (settings['ngdc_cadet_ranks']) setCadetRanksAndSave(parseArray(settings['ngdc_cadet_ranks']));
-        if (settings['ngdc_trainings']) setTrainingAnnouncementsAndSave(parseArray(settings['ngdc_trainings']));
-        if (settings['ngdc_training_form_fields']) setTrainingFormFieldsAndSave(parseArray(settings['ngdc_training_form_fields']));
-        if (settings['ngdc_training_submissions']) setTrainingSubmissionsAndSave(parseArray(settings['ngdc_training_submissions']));
-        if (settings['ngdc_notices']) setNoticesAndSave(parseArray(settings['ngdc_notices']));
-        if (settings['ngdc_blogs']) setBlogsAndSave(parseArray(settings['ngdc_blogs']));
-        if (settings['ngdc_memories']) setMemoriesAndSave(parseArray(settings['ngdc_memories']));
-        if (settings['ngdc_cadet_reg_fields']) setCadetRegFieldsAndSave(parseArray(settings['ngdc_cadet_reg_fields']));
-        // Ignore cadet_users_v8 as they are handled by Supabase direct table
-        if (settings['ngdc_honor_entries_3cat']) setHonorEntriesAndSave(parseArray(settings['ngdc_honor_entries_3cat']));
-        if (settings['ngdc_contact_config']) setContactConfigAndSave(settings['ngdc_contact_config']);
-        if (settings['ngdc_contact_messages']) setContactMessagesAndSave(parseArray(settings['ngdc_contact_messages']));
-        if (settings['ngdc_recruitment_open']) setIsRecruitmentOpenAndSave(settings['ngdc_recruitment_open'] === 'true');
-        if (settings['ngdc_recruitment_announcement']) setRecruitmentAnnouncementAndSave(settings['ngdc_recruitment_announcement']);
-        if (settings['ngdc_recruitment_title']) setRecruitmentNoticeTitleAndSave(settings['ngdc_recruitment_title']);
-        if (settings['ngdc_recruitment_form_fields']) setRecruitmentFormFieldsAndSave(parseArray(settings['ngdc_recruitment_form_fields']));
-        if (settings['ngdc_recruitment_applicants']) setRecruitmentApplicantsAndSave(parseArray(settings['ngdc_recruitment_applicants']));
-        if (settings['ngdc_recruitment_signatories']) setRecruitmentSignatoriesAndSave(settings['ngdc_recruitment_signatories']);
-        if (settings['ngdc_footer_config']) setFooterConfigAndSave(settings['ngdc_footer_config']);
+        if (settings['ngdc_hero_slides']) setHeroSlides(parseArray(settings['ngdc_hero_slides']));
+        if (settings['ngdc_principal_message']) setPrincipalMessage(settings['ngdc_principal_message']);
+        if (settings['ngdc_vice_principal_message']) setVicePrincipalMessage(settings['ngdc_vice_principal_message']);
+        if (settings['ngdc_about_overview']) setAboutOverview(settings['ngdc_about_overview']);
+        if (settings['ngdc_bncco1_message']) setBncco1Message(settings['ngdc_bncco1_message']);
+        if (settings['ngdc_bncco2_message']) setBncco2Message(settings['ngdc_bncco2_message']);
+        if (settings['ngdc_platoon_commander_message']) setPlatoonCommanderMessage(settings['ngdc_platoon_commander_message']);
+        if (settings['ngdc_about_sections']) setAboutSections(parseArray(settings['ngdc_about_sections']));
+        if (settings['ngdc_cadet_ranks']) setCadetRanks(parseArray(settings['ngdc_cadet_ranks']));
+        if (settings['ngdc_trainings']) setTrainingAnnouncements(parseArray(settings['ngdc_trainings']));
+        if (settings['ngdc_training_form_fields']) setTrainingFormFields(parseArray(settings['ngdc_training_form_fields']));
+        if (settings['ngdc_training_submissions']) setTrainingSubmissions(parseArray(settings['ngdc_training_submissions']));
+        if (settings['ngdc_notices']) setNotices(parseArray(settings['ngdc_notices']));
+        if (settings['ngdc_blogs']) setBlogs(parseArray(settings['ngdc_blogs']));
+        if (settings['ngdc_memories']) setMemories(parseArray(settings['ngdc_memories']));
+        if (settings['ngdc_cadet_reg_fields']) setCadetRegFields(parseArray(settings['ngdc_cadet_reg_fields']));
+        if (settings['ngdc_honor_entries_3cat']) setHonorEntries(parseArray(settings['ngdc_honor_entries_3cat']));
+        if (settings['ngdc_contact_config']) setContactConfig(settings['ngdc_contact_config']);
+        if (settings['ngdc_contact_messages']) setContactMessages(parseArray(settings['ngdc_contact_messages']));
+        if (settings['ngdc_recruitment_open']) setIsRecruitmentOpen(settings['ngdc_recruitment_open'] === 'true');
+        if (settings['ngdc_recruitment_announcement']) setRecruitmentAnnouncement(settings['ngdc_recruitment_announcement']);
+        if (settings['ngdc_recruitment_title']) setRecruitmentNoticeTitle(settings['ngdc_recruitment_title']);
+        if (settings['ngdc_recruitment_form_fields']) setRecruitmentFormFields(parseArray(settings['ngdc_recruitment_form_fields']));
+        if (settings['ngdc_recruitment_applicants']) setRecruitmentApplicants(parseArray(settings['ngdc_recruitment_applicants']));
+        if (settings['ngdc_recruitment_signatories']) setRecruitmentSignatories(settings['ngdc_recruitment_signatories']);
+        if (settings['ngdc_footer_config']) setFooterConfig(settings['ngdc_footer_config']);
       }
     }
     loadSettings();
+
 
       const unsubscribeSettings = subscribeToSiteSettingsUpdates((payload) => {
         if (payload.new && payload.new.id) {
