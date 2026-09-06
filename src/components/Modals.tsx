@@ -415,7 +415,7 @@ export const JoinRecruitmentModal: React.FC<{
                     required
                     type="text"
                     placeholder="As per SSC Certificate"
-                    value={formData.fullName}
+                    value={formData.fullName || ''}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl outline-none text-[#1c1c18] dark:text-[#fcfbf7]"
                   />
@@ -426,7 +426,7 @@ export const JoinRecruitmentModal: React.FC<{
                     required
                     type="text"
                     placeholder="e.g. 240192"
-                    value={formData.collegeRoll}
+                    value={formData.collegeRoll || ''}
                     onChange={(e) => setFormData({ ...formData, collegeRoll: e.target.value })}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl outline-none font-mono text-[#1c1c18] dark:text-[#fcfbf7]"
                   />
@@ -440,7 +440,7 @@ export const JoinRecruitmentModal: React.FC<{
                     required
                     type="text"
                     placeholder="e.g. HSC Science, English, etc."
-                    value={formData.department}
+                    value={formData.department || ''}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl outline-none text-[#1c1c18] dark:text-[#fcfbf7]"
                   />
@@ -451,7 +451,7 @@ export const JoinRecruitmentModal: React.FC<{
                     required
                     type="text"
                     placeholder="e.g. 2024-2025"
-                    value={formData.session}
+                    value={formData.session || ''}
                     onChange={(e) => setFormData({ ...formData, session: e.target.value })}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl outline-none text-[#1c1c18] dark:text-[#fcfbf7]"
                   />
@@ -465,7 +465,7 @@ export const JoinRecruitmentModal: React.FC<{
                     required
                     type="email"
                     placeholder="your@email.com"
-                    value={formData.email}
+                    value={formData.email || ''}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl outline-none text-[#1c1c18] dark:text-[#fcfbf7]"
                   />
@@ -476,7 +476,7 @@ export const JoinRecruitmentModal: React.FC<{
                     required
                     type="tel"
                     placeholder="01XXXXXXXXX"
-                    value={formData.phone}
+                    value={formData.phone || ''}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl outline-none text-[#1c1c18] dark:text-[#fcfbf7]"
                   />
@@ -491,7 +491,7 @@ export const JoinRecruitmentModal: React.FC<{
                       type="number"
                       min="4"
                       max="7"
-                      value={formData.heightFeet}
+                      value={formData.heightFeet || ''}
                       onChange={(e) => setFormData({ ...formData, heightFeet: e.target.value })}
                       className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-2 py-2 rounded-xl text-center text-[#1c1c18] dark:text-[#fcfbf7]"
                     />
@@ -499,7 +499,7 @@ export const JoinRecruitmentModal: React.FC<{
                       type="number"
                       min="0"
                       max="11"
-                      value={formData.heightInches}
+                      value={formData.heightInches || ''}
                       onChange={(e) => setFormData({ ...formData, heightInches: e.target.value })}
                       className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-2 py-2 rounded-xl text-center text-[#1c1c18] dark:text-[#fcfbf7]"
                     />
@@ -512,7 +512,7 @@ export const JoinRecruitmentModal: React.FC<{
                     type="number"
                     min="40"
                     max="120"
-                    value={formData.weightKg}
+                    value={formData.weightKg || ''}
                     onChange={(e) => setFormData({ ...formData, weightKg: e.target.value })}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-2 py-2 rounded-xl text-center text-[#1c1c18] dark:text-[#fcfbf7]"
                   />
@@ -521,7 +521,7 @@ export const JoinRecruitmentModal: React.FC<{
                 <div>
                   <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">Blood Group</label>
                   <select
-                    value={formData.bloodGroup}
+                    value={formData.bloodGroup || 'B+'}
                     onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
                     className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-2 py-2 rounded-xl outline-none text-[#1c1c18] dark:text-[#fcfbf7]"
                   >
@@ -724,7 +724,7 @@ export const CadetAuthModal: React.FC<{
                   required
                   type="text"
                   placeholder="e.g. NGDC-2024-042"
-                  value={cadetNo}
+                  value={cadetNo || ''}
                   onChange={(e) => setCadetNo(e.target.value)}
                   className="w-full bg-[#f6f3ed] border border-[#cdc6b3] px-3.5 py-2.5 rounded-full outline-none focus:border-[#1c1c18] font-mono"
                 />
@@ -736,7 +736,7 @@ export const CadetAuthModal: React.FC<{
                   required
                   type="password"
                   placeholder="••••••••"
-                  value={password}
+                  value={password || ''}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-[#f6f3ed] border border-[#cdc6b3] px-3.5 py-2.5 rounded-full outline-none focus:border-[#1c1c18]"
                 />
@@ -875,7 +875,7 @@ export const AdminLoginModal: React.FC<{
                 type="password"
                 maxLength={8}
                 placeholder="Enter Service PIN (1721)"
-                value={pin}
+                value={pin || ''}
                 onChange={(e) => setPin(e.target.value)}
                 className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl outline-none font-mono text-center tracking-widest text-base text-[#1c1c18] dark:text-[#fcfbf7] font-bold"
                 autoFocus

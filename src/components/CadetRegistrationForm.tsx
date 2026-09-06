@@ -29,11 +29,12 @@ interface CadetRegistrationFormProps {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-// Generated list from Batch-1979 to Current Year
-const EX_CADET_BATCHES = Array.from(
+// Generated list from Batch-1979 to Current Year (e.g. Batch-2026)
+const CADET_BATCHES = Array.from(
   { length: CURRENT_YEAR - 1979 + 1 },
   (_, idx) => `Batch-${1979 + idx}`
 );
+const EX_CADET_BATCHES = CADET_BATCHES;
 
 const EX_CADET_RANKS = [
   'CUO/ Cadet Under Officer',
@@ -59,7 +60,7 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
     platoon: 'Male Platoon' as 'Male Platoon' | 'Female Platoon' | 'Band Platoon',
     section: 'Section 01',
     rank: 'Cadet (CDT)',
-    batch: 'Batch 24',
+    batch: `Batch-${CURRENT_YEAR}`,
     cadetNo: '',
     password: '',
     name: '',
@@ -82,6 +83,10 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
     additionalSkills: '',
     achievements: '',
   });
+
+  const [servingBatchSortOrder, setServingBatchSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [isServingCustomBatch, setIsServingCustomBatch] = useState(false);
+  const [servingCustomBatchValue, setServingCustomBatchValue] = useState('');
 
   // Ex-Cadets Alumni Form State
   const [exForm, setExForm] = useState({
@@ -645,17 +650,55 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                  Batch <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-[#1c1c18] dark:text-[#fcfbf7]">
+                    Batch <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setServingBatchSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    className="text-[10px] font-bold text-[#6b5e10] dark:text-[#eedc82] hover:underline cursor-pointer flex items-center gap-1"
+                    title="Toggle batch ordering"
+                  >
+                    <span>{servingBatchSortOrder === 'desc' ? 'Now → 1979' : '1979 → Now'}</span>
+                  </button>
+                </div>
+                <select
                   required
-                  placeholder="e.g. Batch 24"
-                  value={servingForm.batch}
-                  onChange={(e) => setServingForm({ ...servingForm, batch: e.target.value })}
-                  className="w-full bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-bold"
-                />
+                  value={isServingCustomBatch ? '__CUSTOM__' : (servingForm.batch || '')}
+                  onChange={(e) => {
+                    if (e.target.value === '__CUSTOM__') {
+                      setIsServingCustomBatch(true);
+                      setServingForm({ ...servingForm, batch: servingCustomBatchValue });
+                    } else {
+                      setIsServingCustomBatch(false);
+                      setServingForm({ ...servingForm, batch: e.target.value });
+                    }
+                  }}
+                  className="w-full bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-bold cursor-pointer"
+                >
+                  <option value="">Select Batch (Batch-1979 to Batch-{CURRENT_YEAR})</option>
+                  {(servingBatchSortOrder === 'desc' ? [...CADET_BATCHES].reverse() : CADET_BATCHES).map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                  <option value="__CUSTOM__">Other / Custom Batch...</option>
+                </select>
+
+                {isServingCustomBatch && (
+                  <input
+                    type="text"
+                    required
+                    placeholder={`e.g. Batch-${CURRENT_YEAR}`}
+                    value={servingCustomBatchValue}
+                    onChange={(e) => {
+                      setServingCustomBatchValue(e.target.value);
+                      setServingForm({ ...servingForm, batch: e.target.value });
+                    }}
+                    className="mt-2 w-full bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-xs text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-medium"
+                  />
+                )}
               </div>
             </div>
 

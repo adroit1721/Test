@@ -134,9 +134,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
       opacity: 1,
       scale: 1,
       transition: {
-        x: { type: 'spring', stiffness: 260, damping: 30 },
+        x: { type: 'spring' as const, stiffness: 260, damping: 30 },
         opacity: { duration: 0.5 },
-        scale: { duration: 0.7, ease: [0.16, 1, 0.3, 1] },
+        scale: { duration: 0.7, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
       },
     },
     exit: (direction: number) => ({
@@ -144,7 +144,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       opacity: 0,
       scale: 0.96,
       transition: {
-        x: { type: 'spring', stiffness: 260, damping: 30 },
+        x: { type: 'spring' as const, stiffness: 260, damping: 30 },
         opacity: { duration: 0.4 },
       },
     }),

@@ -18,8 +18,9 @@ interface RecruitmentApplicationSlipA4Props {
 
 // Format Date of Birth as "10 Feb 2005"
 export const formatDateOfBirth = (dobStr?: string): string => {
-  if (!dobStr) return '';
+  if (!dobStr || typeof dobStr !== 'string') return '';
   const trimmed = dobStr.trim();
+  if (!trimmed) return '';
   if (/^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/.test(trimmed)) return trimmed;
 
   const parts = trimmed.split('-');
@@ -286,7 +287,7 @@ export const RecruitmentApplicationSlipA4: React.FC<RecruitmentApplicationSlipA4
                 <div>
                   <span>Issue Date: </span>
                   <span className="font-mono font-medium">
-                    {isBlank ? '....................' : (appData.appliedAt?.split(' ')[0] || new Date().toLocaleDateString('en-GB'))}
+                    {isBlank ? '....................' : ((typeof appData.appliedAt === 'string' ? appData.appliedAt.split(' ')[0] : '') || new Date().toLocaleDateString('en-GB'))}
                   </span>
                 </div>
               </div>
@@ -703,7 +704,7 @@ export const RecruitmentApplicationSlipA4: React.FC<RecruitmentApplicationSlipA4
               {/* Applicant Signature Lines */}
               <div className="flex items-end justify-between pt-4 px-2">
                 <div className="text-[11px] font-semibold">
-                  Date: <span className="font-mono font-bold">{isBlank ? '....................................' : (appData.appliedAt?.split(' ')[0] || new Date().toLocaleDateString('en-GB'))}</span>
+                  Date: <span className="font-mono font-bold">{isBlank ? '....................................' : ((typeof appData.appliedAt === 'string' ? appData.appliedAt.split(' ')[0] : '') || new Date().toLocaleDateString('en-GB'))}</span>
                 </div>
 
                 <div className="text-center">

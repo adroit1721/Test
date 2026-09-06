@@ -352,7 +352,7 @@ export const CadetCornerTab: React.FC = () => {
       placeholder: `Enter ${newFieldLabel.trim()}...`,
       options:
         newFieldType === 'select'
-          ? newFieldOptions
+          ? (newFieldOptions || '')
               .split(',')
               .map((o) => o.trim())
               .filter(Boolean)

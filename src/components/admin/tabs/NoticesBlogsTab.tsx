@@ -147,7 +147,7 @@ export const NoticesBlogsTab: React.FC = () => {
       readTime: b.readTime,
       category: b.category,
       summary: b.summary,
-      contentRaw: b.content.join('\n\n'),
+      contentRaw: Array.isArray(b.content) ? b.content.join('\n\n') : (typeof b.content === 'string' ? b.content : ''),
       imageUrl: b.imageUrl || '',
     });
     setIsAddingBlog(false);
@@ -163,7 +163,7 @@ export const NoticesBlogsTab: React.FC = () => {
       readTime: blogForm.readTime,
       category: blogForm.category,
       summary: blogForm.summary,
-      content: blogForm.contentRaw.split('\n\n').filter(Boolean),
+      content: (blogForm.contentRaw || '').split('\n\n').filter(Boolean),
       imageUrl: blogForm.imageUrl,
       likes: editingBlog ? editingBlog.likes : 0,
     };

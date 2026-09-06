@@ -718,6 +718,21 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return [];
   };
 
+  // Safe AboutOverview parser - guarantees all required fields and string content exist
+  const parseAboutOverview = (val: any): AboutOverviewConfig => {
+    if (!val) return DEFAULT_ABOUT_OVERVIEW;
+    let parsed = val;
+    if (typeof val === 'string') {
+      try { parsed = JSON.parse(val); } catch { return DEFAULT_ABOUT_OVERVIEW; }
+    }
+    if (!parsed || typeof parsed !== 'object') return DEFAULT_ABOUT_OVERVIEW;
+    return {
+      ...DEFAULT_ABOUT_OVERVIEW,
+      ...parsed,
+      content: typeof parsed.content === 'string' && parsed.content ? parsed.content : DEFAULT_ABOUT_OVERVIEW.content,
+    };
+  };
+
   // --- Admin PIN (Default: 1721) ---
   
   // --- Supabase Site Settings Initialization ---
@@ -730,7 +745,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (settings['ngdc_hero_slides']) setHeroSlides(parseArray(settings['ngdc_hero_slides']));
         if (settings['ngdc_principal_message']) setPrincipalMessage(settings['ngdc_principal_message']);
         if (settings['ngdc_vice_principal_message']) setVicePrincipalMessage(settings['ngdc_vice_principal_message']);
-        if (settings['ngdc_about_overview']) setAboutOverview(settings['ngdc_about_overview']);
+        if (settings['ngdc_about_overview']) setAboutOverview(parseAboutOverview(settings['ngdc_about_overview']));
         if (settings['ngdc_bncco1_message']) setBncco1Message(settings['ngdc_bncco1_message']);
         if (settings['ngdc_bncco2_message']) setBncco2Message(settings['ngdc_bncco2_message']);
         if (settings['ngdc_platoon_commander_message']) setPlatoonCommanderMessage(settings['ngdc_platoon_commander_message']);
@@ -766,7 +781,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if (key === 'ngdc_hero_slides') setHeroSlides(parseArray(val));
           else if (key === 'ngdc_principal_message') setPrincipalMessage(val);
           else if (key === 'ngdc_vice_principal_message') setVicePrincipalMessage(val);
-          else if (key === 'ngdc_about_overview') setAboutOverview(val);
+          else if (key === 'ngdc_about_overview') setAboutOverview(parseAboutOverview(val));
           else if (key === 'ngdc_bncco1_message') setBncco1Message(val);
           else if (key === 'ngdc_bncco2_message') setBncco2Message(val);
           else if (key === 'ngdc_platoon_commander_message') setPlatoonCommanderMessage(val);
@@ -881,8 +896,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const setAboutOverviewAndSave = (val: any) => {
     setAboutOverview((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
-      upsertSiteSetting('ngdc_about_overview', next);
-      return next;
+      const safe = parseAboutOverview(next);
+      upsertSiteSetting('ngdc_about_overview', safe);
+      return safe;
     });
   };
 

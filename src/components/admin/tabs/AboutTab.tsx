@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAdminData } from '../../../context/AdminDataContext';
 import { CloudinaryUploader } from '../../common/CloudinaryUploader';
 import {
@@ -33,7 +33,20 @@ export const AboutTab: React.FC = () => {
   const [activeSubtab, setActiveSubtab] = useState<'overview' | 'bncco1' | 'bncco2' | 'commander'>('overview');
 
   // Local form state for Overview
-  const [overviewForm, setOverviewForm] = useState(aboutOverview);
+  const [overviewForm, setOverviewForm] = useState(aboutOverview || {
+    badge: 'About Our Platoon',
+    title: 'Bangladesh National Cadet Corps',
+    subtitle: '',
+    established: '',
+    motto: '',
+    content: '',
+  });
+
+  useEffect(() => {
+    if (aboutOverview) {
+      setOverviewForm(aboutOverview);
+    }
+  }, [aboutOverview]);
 
   // Local form state for BNCCO 1
   const [bncco1Form, setBncco1Form] = useState(bncco1Message);
@@ -232,7 +245,7 @@ export const AboutTab: React.FC = () => {
                 <input
                   type="text"
                   required
-                  value={overviewForm.title}
+                  value={overviewForm.title || ''}
                   onChange={(e) => setOverviewForm({ ...overviewForm, title: e.target.value })}
                   className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-bold"
                 />
@@ -245,7 +258,7 @@ export const AboutTab: React.FC = () => {
               </label>
               <input
                 type="text"
-                value={overviewForm.subtitle}
+                value={overviewForm.subtitle || ''}
                 onChange={(e) => setOverviewForm({ ...overviewForm, subtitle: e.target.value })}
                 className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
               />
@@ -258,7 +271,7 @@ export const AboutTab: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={overviewForm.established}
+                  value={overviewForm.established || ''}
                   onChange={(e) => setOverviewForm({ ...overviewForm, established: e.target.value })}
                   className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
                 />
@@ -269,7 +282,7 @@ export const AboutTab: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={overviewForm.motto}
+                  value={overviewForm.motto || ''}
                   onChange={(e) => setOverviewForm({ ...overviewForm, motto: e.target.value })}
                   className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
                 />
@@ -283,7 +296,7 @@ export const AboutTab: React.FC = () => {
               <textarea
                 rows={9}
                 required
-                value={overviewForm.content}
+                value={overviewForm.content || ''}
                 onChange={(e) => setOverviewForm({ ...overviewForm, content: e.target.value })}
                 className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none leading-relaxed"
               />
@@ -311,13 +324,13 @@ export const AboutTab: React.FC = () => {
                 {overviewForm.badge || 'About Our Platoon'}
               </span>
               <h4 className="font-extrabold text-base text-[#1c1c18] dark:text-[#fcfbf7]">
-                {overviewForm.title}
+                {overviewForm.title || 'Bangladesh National Cadet Corps'}
               </h4>
               <p className="text-xs text-[#6b5e10] dark:text-[#eedc82] font-semibold">
-                {overviewForm.subtitle}
+                {overviewForm.subtitle || ''}
               </p>
               <div className="space-y-1.5 pt-1 text-xs text-[#4a4738] dark:text-[#aca596] leading-relaxed">
-                {overviewForm.content.split('\n\n').map((para, i) => (
+                {(overviewForm.content || '').split('\n\n').map((para, i) => (
                   <p key={i}>{para}</p>
                 ))}
               </div>

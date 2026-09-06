@@ -680,7 +680,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
                   </label>
                   <select
                     required
-                    value={formData.gender}
+                    value={formData.gender || ''}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                     className="japandi-input w-full bg-white dark:bg-[#181714]"
                   >
@@ -698,7 +698,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
                   </label>
                   <select
                     required
-                    value={formData.studentClass}
+                    value={formData.studentClass || ''}
                     onChange={(e) => setFormData({ ...formData, studentClass: e.target.value })}
                     className="japandi-input w-full bg-white dark:bg-[#181714]"
                   >
@@ -719,7 +719,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
                   <input
                     type="text"
                     required
-                    value={formData.department}
+                    value={formData.department || ''}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                     placeholder="e.g. Science / Physics / Management"
                     className="japandi-input w-full bg-white dark:bg-[#181714]"
@@ -734,7 +734,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
                   <input
                     type="text"
                     required
-                    value={formData.collegeRoll}
+                    value={formData.collegeRoll || ''}
                     onChange={(e) => setFormData({ ...formData, collegeRoll: e.target.value })}
                     placeholder="e.g. 24-SCI-0142"
                     className="japandi-input w-full font-mono bg-white dark:bg-[#181714]"
@@ -751,7 +751,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
                   <input
                     type="text"
                     required
-                    value={formData.session}
+                    value={formData.session || ''}
                     onChange={(e) => setFormData({ ...formData, session: e.target.value })}
                     placeholder="e.g. 2024-2025"
                     className="japandi-input w-full font-mono bg-white dark:bg-[#181714]"
@@ -925,7 +925,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
                   <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#181714] px-3 py-1 rounded-lg border border-[#cdc6b3]/70 dark:border-[#423e35]">
                     <input
                       type="checkbox"
-                      checked={sameAsPresent}
+                      checked={Boolean(sameAsPresent)}
                       onChange={(e) => handleSameAddressToggle(e.target.checked)}
                       className="rounded accent-[#6b5e10]"
                     />
@@ -1305,7 +1305,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
                         min="4"
                         max="7"
                         required
-                        value={formData.heightFeet}
+                        value={formData.heightFeet || ''}
                         onChange={(e) => setFormData({ ...formData, heightFeet: e.target.value })}
                         placeholder="5"
                         className="japandi-input w-full py-2 pr-7 font-mono text-center bg-white dark:bg-[#181714]"
@@ -1318,7 +1318,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
                         min="0"
                         max="11"
                         required
-                        value={formData.heightInches}
+                        value={formData.heightInches || ''}
                         onChange={(e) => setFormData({ ...formData, heightInches: e.target.value })}
                         placeholder="8"
                         className="japandi-input w-full py-2 pr-7 font-mono text-center bg-white dark:bg-[#181714]"
@@ -1335,7 +1335,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
                   </label>
                   <select
                     required
-                    value={formData.bloodGroup}
+                    value={formData.bloodGroup || ''}
                     onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
                     className="japandi-input w-full font-bold bg-white dark:bg-[#181714]"
                   >
@@ -1362,7 +1362,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
                       required
                       min="35"
                       max="120"
-                      value={formData.weightKg}
+                      value={formData.weightKg || ''}
                       onChange={(e) => setFormData({ ...formData, weightKg: e.target.value })}
                       placeholder="e.g. 62"
                       className="japandi-input w-full py-2 pr-9 font-mono bg-white dark:bg-[#181714]"
@@ -1430,7 +1430,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
                   <input
                     type="checkbox"
                     required
-                    checked={formData.pledgeAccepted}
+                    checked={Boolean(formData.pledgeAccepted)}
                     onChange={(e) => setFormData({ ...formData, pledgeAccepted: e.target.checked })}
                     className="mt-0.5 rounded accent-[#6b5e10]"
                   />
@@ -1450,7 +1450,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
                   <input
                     type="checkbox"
                     required
-                    checked={formData.guardianConsentAccepted}
+                    checked={Boolean(formData.guardianConsentAccepted)}
                     onChange={(e) => setFormData({ ...formData, guardianConsentAccepted: e.target.checked })}
                     className="mt-0.5 rounded accent-[#6b5e10]"
                   />

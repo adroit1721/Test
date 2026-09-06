@@ -275,18 +275,18 @@ export default function App() {
 
       <JoinRecruitmentModal
         isOpen={isJoinModalOpen}
-        onClose={() => setIsJoinModalOpen(false)}
+        onClose={() => setJoinModalOpen(false)}
       />
 
       <CadetAuthModal
         isOpen={isCadetAuthOpen}
         initialMode={cadetAuthMode}
-        onClose={() => setIsCadetAuthOpen(false)}
+        onClose={() => setCadetAuthOpen(false)}
       />
 
       <UniformGuideModal
         isOpen={isUniformModalOpen}
-        onClose={() => setIsUniformModalOpen(false)}
+        onClose={() => setUniformModalOpen(false)}
       />
 
       <AdminLoginModal

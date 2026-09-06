@@ -51,10 +51,10 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
     setIsUploading(true);
     setStatusMessage({ type: 'info', text: 'Uploading to Cloudinary...' });
     try {
-      const url = await uploadImageToCloudinary(file, folder);
+      const uploadRes = await uploadImageToCloudinary(file, folder);
       setStatusMessage({ type: 'success', text: 'Uploaded to Cloudinary CDN!' });
-      if (typeof onChange === 'function') onChange(url);
-      if (typeof onUploadComplete === 'function') onUploadComplete(url);
+      if (typeof onChange === 'function') onChange(uploadRes.url);
+      if (typeof onUploadComplete === 'function') onUploadComplete(uploadRes.url);
     } catch (err) {
       console.error(err);
       setStatusMessage({ type: 'error', text: 'Upload failed: Cloudinary configuration missing.' });

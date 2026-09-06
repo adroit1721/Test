@@ -84,6 +84,7 @@ export interface MemoryItem {
   title: string;
   description: string;
   category: 'training' | 'parade' | 'relief' | 'awards';
+  type?: 'image' | 'video' | string;
   imageUrl: string;
   altText: string;
   date: string;
@@ -136,6 +137,9 @@ export interface TrainingAnnouncement {
   id: string;
   title: string;
   category: 'Camp' | 'Parade' | 'Workshop' | 'Competition' | 'Special Drill';
+  type?: 'training' | 'event' | string;
+  day?: string;
+  activity?: string;
   date: string;
   time: string;
   venue: string;
@@ -231,6 +235,7 @@ export interface CadetUserAccount {
   cadetType: 'Current' | 'Ex-cadet';
   isApproved: boolean;
   avatarUrl?: string;
+  customFields?: Record<string, string>;
 }
 
 export interface CadetProfile {
@@ -249,7 +254,7 @@ export interface CadetProfile {
   totalParades: number;
   campsAttended: string[];
   certificates: string[];
-  status: 'Active' | 'Under Training' | 'Alumni';
+  status: 'Active' | 'Under Training' | 'Alumni' | 'Pending Approval';
 }
 
 export interface ContactMessage {
@@ -267,6 +272,7 @@ export interface RecruitmentAnnouncementConfig {
   isActive: boolean;
   title: string;
   batch: string;
+  academicSession?: string;
   deadline: string;
   startDate?: string;
   endDate?: string;
@@ -413,6 +419,10 @@ export interface ContactConfig {
   emailSecondary?: string;
   officeHours: string;
   mapEmbedUrl?: string;
+  address?: string;
+  paradeHours?: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface FooterConfig {
@@ -430,6 +440,8 @@ export interface FooterConfig {
   bnccGovUrl: string;
   copyrightText: string;
   mottoText: string;
+  aboutText?: string;
+  emergencyPhone?: string;
 }
 
 

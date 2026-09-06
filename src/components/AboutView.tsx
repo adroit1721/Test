@@ -98,7 +98,7 @@ export const AboutView: React.FC<AboutViewProps> = () => {
             variants={framerPopItemVariants}
             className="pt-4 border-t border-[#cdc6b3]/40 dark:border-[#423e35]/60 space-y-4"
           >
-            {platoonText
+            {(platoonText || '')
               .split('\n\n')
               .filter(Boolean)
               .map((paragraph, pIdx) => (

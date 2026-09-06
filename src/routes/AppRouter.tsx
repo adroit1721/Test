@@ -5,16 +5,16 @@ import { useAppStore } from '../store/useAppStore';
 import ErrorBoundary from '../components/common/ErrorBoundary';
 
 // Lazy‑load page components
-const HomePage = lazy(() => import('../components/HomeView'));
-const AboutPage = lazy(() => import('../components/AboutView'));
-const TrainingPage = lazy(() => import('../components/TrainingEventsView'));
-const NoticePage = lazy(() => import('../components/NoticeBlogsView'));
-const MemoriesPage = lazy(() => import('../components/MemoriesView'));
-const CadetsPage = lazy(() => import('../components/CadetsCornerView'));
-const HonorPage = lazy(() => import('../components/HonorBoardView'));
-const ContactPage = lazy(() => import('../components/ContactView'));
-const RecruitmentPage = lazy(() => import('../components/RecruitmentView'));
-const AdminPage = lazy(() => import('../components/admin/AdminView'));
+const HomePage = lazy(() => import('../components/HomeView').then(m => ({ default: m.HomeView as any })));
+const AboutPage = lazy(() => import('../components/AboutView').then(m => ({ default: m.AboutView as any })));
+const TrainingPage = lazy(() => import('../components/TrainingEventsView').then(m => ({ default: m.TrainingEventsView as any })));
+const NoticePage = lazy(() => import('../components/NoticeBlogsView').then(m => ({ default: m.NoticeBlogsView as any })));
+const MemoriesPage = lazy(() => import('../components/MemoriesView').then(m => ({ default: m.MemoriesView as any })));
+const CadetsPage = lazy(() => import('../components/CadetsCornerView').then(m => ({ default: m.CadetsCornerView as any })));
+const HonorPage = lazy(() => import('../components/HonorBoardView').then(m => ({ default: m.HonorBoardView as any })));
+const ContactPage = lazy(() => import('../components/ContactView').then(m => ({ default: m.ContactView as any })));
+const RecruitmentPage = lazy(() => import('../components/RecruitmentView').then(m => ({ default: m.RecruitmentView as any })));
+const AdminPage = lazy(() => import('../components/admin/AdminView').then(m => ({ default: m.AdminView as any })));
 
 export default function AppRouter() {
   const isAdmin = useAppStore(state => state.isAdminAuthenticated);
