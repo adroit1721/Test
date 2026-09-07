@@ -323,7 +323,14 @@ export async function fetchSiteSettings(): Promise<Record<string, any> | null> {
         'ngdc_honor_entries_3cat',
         'ngdc_contact_config',
         'ngdc_contact_messages',
+        'ngdc_recruitment_open',
+        'ngdc_recruitment_announcement',
+        'ngdc_recruitment_title',
+        'ngdc_recruitment_form_fields',
+        'ngdc_recruitment_applicants',
+        'ngdc_recruitment_signatories',
         'ngdc_footer_config',
+        'ngdc_admin_service_pin',
       ];
       for (const k of knownKeys) {
         const item = localStorage.getItem(k);

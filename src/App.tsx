@@ -128,6 +128,7 @@ export default function App() {
           setIsAdminAuthenticated(false);
         }}
         isDarkMode={isDarkMode}
+        onToggleDarkMode={() => {}}
       />
     );
   }
