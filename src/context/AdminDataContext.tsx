@@ -425,7 +425,7 @@ const DEFAULT_CONTACT_CONFIG: ContactConfig = {
   emailPrimary: 'bncc.ngdc@gmail.com',
   emailSecondary: 'puo.matin@ngdc.ac.bd',
   officeHours: 'Sunday to Thursday: 09:00 AM - 04:00 PM | Friday/Saturday: Parade Hours 06:30 AM - 11:00 AM',
-  mapEmbedUrl: 'https://maps.google.com/maps?q=New+Govt.+Degree+College,+Rajshahi,+Bangladesh&t=&z=16&ie=UTF8&iwloc=&output=embed',
+  mapEmbedUrl: 'https://maps.google.com/maps?q=New%20Govt.%20Degree%20College%20Rajshahi&t=&z=16&ie=UTF8&iwloc=&output=embed',
 };
 
 // Default Contact Messages Inbox
@@ -1150,9 +1150,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const setIsRecruitmentOpenAndSave = (val: any) => {
-    setIsRecruitmentOpen((prev: any) => {
-      const next = typeof val === 'function' ? val(prev) : val;
+    setIsRecruitmentOpenState((prev: boolean) => {
+      const next = typeof val === 'function' ? val(prev) : Boolean(val);
       upsertSiteSetting('ngdc_recruitment_open', next);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ngdc_recruitment_open', String(next));
+      }
       return next;
     });
   };
@@ -1868,7 +1871,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   // --- 9. Cadet Recruitment ---
-  const [isRecruitmentOpen, setIsRecruitmentOpen] = useState<boolean>(() => {
+  const [isRecruitmentOpen, setIsRecruitmentOpenState] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('ngdc_recruitment_open');
       if (saved !== null) return saved === 'true';
@@ -1886,7 +1889,21 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_RECRUITMENT_ANNOUNCEMENT;
   });
 
+  const setIsRecruitmentOpen = (open: boolean) => {
+    setIsRecruitmentOpenState(open);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ngdc_recruitment_open', String(open));
+    }
+    setRecruitmentAnnouncementAndSave((prev) => ({ ...prev, isActive: open }));
+  };
+
   const updateRecruitmentAnnouncement = (ann: Partial<RecruitmentAnnouncementConfig>) => {
+    if (ann.isActive !== undefined) {
+      setIsRecruitmentOpenState(ann.isActive);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ngdc_recruitment_open', String(ann.isActive));
+      }
+    }
     setRecruitmentAnnouncementAndSave((prev) => ({ ...prev, ...ann }));
   };
 
@@ -1974,21 +1991,58 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       const excelRows = recruitmentApplicants.map((app, index) => {
         const row: Record<string, any> = {
-          'SL': index + 1,
-          'Token No.': app.token,
-          'Full Name': app.fullName,
-          'College Roll': app.collegeRoll,
-          'Department': app.department,
-          'Session': app.session,
-          'Phone Number': app.phone,
-          'Email Address': app.email,
-          'Height (Feet)': app.heightFeet,
-          'Height (Inches)': app.heightInches,
-          'Weight (kg)': app.weightKg,
-          'Blood Group': app.bloodGroup,
-          'Enrolment Status': app.status,
-          'Applied Date': app.appliedAt,
-          'Reason / Motivation': app.reason,
+          'SL No': index + 1,
+          'Serial / Token No.': app.serialNo || app.token || app.id,
+          'Enrolment Status': app.status || 'Pending',
+          'Application Date': app.appliedAt || '',
+          'Full Name (English)': app.nameEnglish || app.fullName || '',
+          'Full Name (Bangla)': app.nameBangla || '',
+          'Father Name (English)': app.fatherNameEnglish || '',
+          'Father Name (Bangla)': app.fatherNameBangla || '',
+          'Mother Name (English)': app.motherNameEnglish || '',
+          'Mother Name (Bangla)': app.motherNameBangla || '',
+          'Gender': app.gender || '',
+          'Class / Year': app.studentClass || '',
+          'Department': app.department || '',
+          'College Roll': app.collegeRoll || '',
+          'Session': app.session || '',
+          'Date of Birth': app.dateOfBirth || '',
+          'Religion': app.religion || '',
+          'Blood Group': app.bloodGroup || '',
+          'Height (Feet)': app.heightFeet || '',
+          'Height (Inches)': app.heightInches || '',
+          'Height (Combined)': app.heightFeet ? `${app.heightFeet}' ${app.heightInches || 0}"` : (app.height || ''),
+          'Weight (kg)': app.weightKg || app.weight || '',
+          'Chest (Normal)': app.chestNormal || '',
+          'Chest (Expanded)': app.chestExpanded || '',
+          'Applicant Mobile (Self)': app.phoneSelf || app.phone || '',
+          'Guardian Mobile': app.phoneGuardian || '',
+          'Email Address': app.email || '',
+          'Present Address - Division': app.presentAddress?.division || '',
+          'Present Address - District': app.presentAddress?.district || '',
+          'Present Address - Upazila/Thana': app.presentAddress?.upazila || '',
+          'Present Address - Post Office': app.presentAddress?.post || '',
+          'Present Address - Village/Road': app.presentAddress?.village || '',
+          'Permanent Address - Division': app.permanentAddress?.division || '',
+          'Permanent Address - District': app.permanentAddress?.district || '',
+          'Permanent Address - Upazila/Thana': app.permanentAddress?.upazila || '',
+          'Permanent Address - Post Office': app.permanentAddress?.post || '',
+          'Permanent Address - Village/Road': app.permanentAddress?.village || '',
+          'Qualification 1 Exam': app.qualifications?.[0]?.examName || 'SSC',
+          'Qualification 1 Group': app.qualifications?.[0]?.divisionOrGroup || '',
+          'Qualification 1 Board': app.qualifications?.[0]?.board || '',
+          'Qualification 1 Passing Year': app.qualifications?.[0]?.passingYear || '',
+          'Qualification 1 GPA': app.qualifications?.[0]?.gpa || '',
+          'Qualification 2 Exam': app.qualifications?.[1]?.examName || '',
+          'Qualification 2 Group': app.qualifications?.[1]?.divisionOrGroup || '',
+          'Qualification 2 Board': app.qualifications?.[1]?.board || '',
+          'Qualification 2 Passing Year': app.qualifications?.[1]?.passingYear || '',
+          'Qualification 2 GPA': app.qualifications?.[1]?.gpa || '',
+          'Additional Skills': app.additionalSkills || '',
+          'Reason / Motivation': app.reason || '',
+          'Pledge Accepted': app.pledgeAccepted ? 'Yes' : 'No',
+          'Guardian Consent Accepted': app.guardianConsentAccepted ? 'Yes' : 'No',
+          'Photo Attached': app.avatarUrl ? 'Yes' : 'No',
         };
 
         // Also append any custom fields
@@ -2002,26 +2056,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
 
       const worksheet = XLSX.utils.json_to_sheet(excelRows);
-      // Auto size columns
-      const colWidths = [
-        { wch: 6 },  // SL
-        { wch: 18 }, // Token
-        { wch: 26 }, // Name
-        { wch: 16 }, // Roll
-        { wch: 28 }, // Dept
-        { wch: 14 }, // Session
-        { wch: 16 }, // Phone
-        { wch: 26 }, // Email
-        { wch: 14 }, // Height Ft
-        { wch: 14 }, // Height In
-        { wch: 12 }, // Weight
-        { wch: 12 }, // Blood
-        { wch: 14 }, // Status
-        { wch: 20 }, // Date
-        { wch: 45 }, // Reason
-      ];
-      worksheet['!cols'] = colWidths;
-
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Recruitment_Applicants');
       

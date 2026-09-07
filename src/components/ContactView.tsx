@@ -237,23 +237,23 @@ export const ContactView: React.FC = () => {
             </div>
           </div>
 
-          {/* Google Maps Embed */}
-          <div className="h-64 japandi-card overflow-hidden bg-[#ebe8e2] dark:bg-[#191815] relative border border-[#cdc6b3]/60 dark:border-[#423e35] rounded-3xl shadow-xs">
+          {/* Map Preview Embed */}
+          <div className="h-64 sm:h-72 rounded-3xl overflow-hidden border border-[#cdc6b3]/70 dark:border-[#423e35] shadow-xs relative group bg-[#ebe8e2] dark:bg-[#141311]">
             <iframe
-              src={contactConfig.mapEmbedUrl}
+              src="https://maps.google.com/maps?q=New%20Govt.%20Degree%20College%20Rajshahi&t=&z=16&ie=UTF8&iwloc=&output=embed"
               width="100%"
               height="100%"
               style={{ border: 0 }}
               allowFullScreen
               loading="lazy"
               referrerPolicy="strict-origin-when-cross-origin"
-              title="New Govt. Degree College, Rajshahi BNCC Unit Location"
-              className="w-full h-full"
+              title="Platoon HQ - New Govt. Degree College, Rajshahi"
+              className="w-full h-full dark:invert-[0.92] dark:hue-rotate-180 dark:contrast-[1.2] opacity-90 hover:opacity-100 transition-opacity"
             />
-            <div className="absolute bottom-3 left-3 z-10 px-3 py-1.5 bg-[#fcf9f3]/95 dark:bg-[#1e1d19]/95 backdrop-blur-md rounded-full border border-[#cdc6b3] dark:border-[#423e35] shadow-xs text-left pointer-events-none">
+            <div className="absolute bottom-3 left-3 z-10 px-3.5 py-1.5 bg-[#fcf9f3]/95 dark:bg-[#1e1d19]/95 backdrop-blur-md rounded-full border border-[#cdc6b3] dark:border-[#423e35] shadow-xs text-left pointer-events-none">
               <span className="text-xs font-bold text-[#1c1c18] dark:text-[#fcfbf7] flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-[#6b5e10] dark:text-[#eedc82]" />
-                {contactConfig.address}
+                Platoon HQ • Room 123, Front Building, NGDC Rajshahi
               </span>
             </div>
           </div>

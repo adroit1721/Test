@@ -45,6 +45,7 @@ interface RecruitmentViewProps {
 export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }) => {
   const {
     recruitmentAnnouncement,
+    isRecruitmentOpen,
     recruitmentConfig,
     addRecruitmentApplicant,
     recruitmentApplicants,
@@ -106,7 +107,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
   const [submittedApplicant, setSubmittedApplicant] = useState<RecruitmentApplicant | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const isWindowActive = recruitmentAnnouncement?.isActive !== false;
+  const isWindowActive = isRecruitmentOpen !== undefined ? isRecruitmentOpen : (recruitmentAnnouncement?.isActive !== false);
 
   // Handle Photo Upload
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -513,11 +514,82 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
         </div>
       )}
 
-      {/* 3. MAIN FORM */}
+      {/* 3. RECRUITMENT CLOSED NOTICE OR MAIN ADMISSION FORM */}
       {!formSubmitted && (
-        <div
-          className="bg-[#fbf9f4] dark:bg-[#181714] border border-[#d6cebf] dark:border-[#38342c] p-4 sm:p-7 md:p-9 rounded-3xl shadow-sm space-y-6 sm:space-y-8"
-        >
+        !isWindowActive ? (
+          <div
+            id="recruitment-closed-notice"
+            className="japandi-card bg-[#fcf9f3] dark:bg-[#181714] border-2 border-red-300 dark:border-red-900/60 p-8 sm:p-12 rounded-3xl text-center space-y-6 shadow-sm max-w-3xl mx-auto my-6"
+          >
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto shadow-inner">
+              <AlertCircle className="w-8 h-8 sm:w-10 sm:h-10" />
+            </div>
+
+            <div className="space-y-3">
+              <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+                Notice: Enrolment Suspended / Closed
+              </span>
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#1c1c18] dark:text-[#fcfbf7] leading-tight">
+                Currently the recuitment is closed any query contact to Platoon HQ
+              </h2>
+              <p className="text-xs sm:text-sm text-[#695c4e] dark:text-[#aca596] max-w-xl mx-auto leading-relaxed">
+                The online cadet admission portal is currently closed for new enrollments. For questions regarding upcoming recruitment circulars, selection dates, or training activities, please contact the BNCC Platoon Headquarters.
+              </p>
+            </div>
+
+            {/* Platoon HQ Details Card */}
+            <div className="bg-white dark:bg-[#1f1e1a] rounded-2xl p-5 border border-[#cdc6b3]/60 dark:border-[#423e35] text-left text-xs space-y-3 max-w-xl mx-auto">
+              <h4 className="font-bold text-[#1c1c18] dark:text-[#fcfbf7] flex items-center gap-2 border-b border-[#cdc6b3]/40 pb-2">
+                <Building2 className="w-4 h-4 text-[#6b5e10] dark:text-[#eedc82]" />
+                <span>BNCC Platoon HQ • New Govt. Degree College, Rajshahi</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[#4a4639] dark:text-[#cdc6b3]">
+                <div>
+                  <span className="font-semibold block text-[#1c1c18] dark:text-[#fcfbf7]">Office Location:</span>
+                  <span>Room 123, Front Building, NGDC Rajshahi</span>
+                </div>
+                <div>
+                  <span className="font-semibold block text-[#1c1c18] dark:text-[#fcfbf7]">Office Hours:</span>
+                  <span>Sun - Thu: 09:00 AM - 04:00 PM</span>
+                </div>
+                <div>
+                  <span className="font-semibold block text-[#1c1c18] dark:text-[#fcfbf7]">Contact Number:</span>
+                  <span>+880 1712-345678</span>
+                </div>
+                <div>
+                  <span className="font-semibold block text-[#1c1c18] dark:text-[#fcfbf7]">Email:</span>
+                  <span>bncc.ngdc@gmail.com</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowStatusSearch(true)}
+                className="japandi-btn-secondary text-xs sm:text-sm py-2.5 px-4 font-bold flex items-center gap-2 cursor-pointer"
+              >
+                <Search className="w-4 h-4 text-[#6b5e10] dark:text-[#eedc82]" />
+                <span>Check Application Status</span>
+              </button>
+
+              {setActiveTab && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('contact')}
+                  className="japandi-btn-primary text-xs sm:text-sm py-2.5 px-5 font-bold flex items-center gap-2 cursor-pointer"
+                >
+                  <MapPin className="w-4 h-4" />
+                  <span>Contact Platoon HQ</span>
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div
+            className="bg-[#fbf9f4] dark:bg-[#181714] border border-[#d6cebf] dark:border-[#38342c] p-4 sm:p-7 md:p-9 rounded-3xl shadow-sm space-y-6 sm:space-y-8"
+          >
           <div className="border-b border-[#cdc6b3]/60 dark:border-[#38342c] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-[#1c1c18] dark:text-[#fcfbf7]">
@@ -1491,6 +1563,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
             </div>
           </form>
         </div>
+        )
       )}
 
       {/* 4. APPLICATION STATUS SEARCH DRAWER / MODAL */}

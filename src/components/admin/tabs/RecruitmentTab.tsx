@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAdminData } from '../../../context/AdminDataContext';
 import { FormFieldConfig, RecruitmentApplicant, RecruitmentSignatoriesConfig } from '../../../types';
-import { CloudinaryUploader } from '../../common/CloudinaryUploader';
 import { RecruitmentApplicationSlipA4 } from '../../common/RecruitmentApplicationSlipA4';
+import { CloudinaryUploader } from '../../common/CloudinaryUploader';
 import * as XLSX from 'xlsx';
 import {
   UserPlus,
@@ -34,6 +34,8 @@ export const RecruitmentTab: React.FC = () => {
   const {
     recruitmentAnnouncement,
     updateRecruitmentAnnouncement,
+    isRecruitmentOpen,
+    setIsRecruitmentOpen,
     recruitmentFields,
     setRecruitmentFields,
     applicants,
@@ -92,6 +94,25 @@ export const RecruitmentTab: React.FC = () => {
       footerText: '',
     }
   );
+
+  useEffect(() => {
+    if (recruitmentAnnouncement) {
+      setAnnouncementForm(recruitmentAnnouncement);
+    }
+  }, [recruitmentAnnouncement]);
+
+  const isEnrollmentActive = isRecruitmentOpen !== undefined ? isRecruitmentOpen : (announcementForm.isActive !== false);
+
+  const handleToggleEnrollment = () => {
+    const nextState = !isEnrollmentActive;
+    if (setIsRecruitmentOpen) {
+      setIsRecruitmentOpen(nextState);
+    }
+    if (updateRecruitmentAnnouncement) {
+      updateRecruitmentAnnouncement({ ...announcementForm, isActive: nextState });
+    }
+    setAnnouncementForm((prev) => ({ ...prev, isActive: nextState }));
+  };
   const [announcementSaved, setAnnouncementSaved] = useState(false);
 
   // Applicant search & filter
@@ -129,7 +150,7 @@ export const RecruitmentTab: React.FC = () => {
     }));
   };
 
-  // Export Applicants to Excel
+  // Export Applicants to Excel with ALL recruitment form fields
   const handleExportToExcel = () => {
     if (applicantList.length === 0) {
       alert('No applicants available to export.');
@@ -138,18 +159,57 @@ export const RecruitmentTab: React.FC = () => {
 
     const exportData = applicantList.map((app, index) => ({
       'SL No': index + 1,
-      'Application ID': app.id,
-      'Full Name': app.fullName,
-      'College Roll': app.collegeRoll,
-      'Department': app.department,
-      'Session': app.session,
-      'Phone': app.phone,
-      'Email': app.email,
-      'Blood Group': app.bloodGroup,
-      'Height': app.heightFeet ? `${app.heightFeet}' ${app.heightInches || 0}"` : app.height || 'N/A',
-      'Weight': app.weightKg ? `${app.weightKg} kg` : app.weight || 'N/A',
-      'Status': app.status,
-      'Application Date': app.appliedAt,
+      'Serial / Token No.': app.serialNo || app.token || app.id,
+      'Enrolment Status': app.status || 'Pending',
+      'Application Date': app.appliedAt || '',
+      'Full Name (English)': app.nameEnglish || app.fullName || '',
+      'Full Name (Bangla)': app.nameBangla || '',
+      'Father Name (English)': app.fatherNameEnglish || '',
+      'Father Name (Bangla)': app.fatherNameBangla || '',
+      'Mother Name (English)': app.motherNameEnglish || '',
+      'Mother Name (Bangla)': app.motherNameBangla || '',
+      'Gender': app.gender || '',
+      'Class / Year': app.studentClass || '',
+      'Department': app.department || '',
+      'College Roll': app.collegeRoll || '',
+      'Session': app.session || '',
+      'Date of Birth': app.dateOfBirth || '',
+      'Religion': app.religion || '',
+      'Blood Group': app.bloodGroup || '',
+      'Height (Feet)': app.heightFeet || '',
+      'Height (Inches)': app.heightInches || '',
+      'Height (Combined)': app.heightFeet ? `${app.heightFeet}' ${app.heightInches || 0}"` : (app.height || ''),
+      'Weight (kg)': app.weightKg || app.weight || '',
+      'Chest (Normal)': app.chestNormal || '',
+      'Chest (Expanded)': app.chestExpanded || '',
+      'Applicant Mobile (Self)': app.phoneSelf || app.phone || '',
+      'Guardian Mobile': app.phoneGuardian || '',
+      'Email Address': app.email || '',
+      'Present Address - Division': app.presentAddress?.division || '',
+      'Present Address - District': app.presentAddress?.district || '',
+      'Present Address - Upazila/Thana': app.presentAddress?.upazila || '',
+      'Present Address - Post Office': app.presentAddress?.post || '',
+      'Present Address - Village/Road': app.presentAddress?.village || '',
+      'Permanent Address - Division': app.permanentAddress?.division || '',
+      'Permanent Address - District': app.permanentAddress?.district || '',
+      'Permanent Address - Upazila/Thana': app.permanentAddress?.upazila || '',
+      'Permanent Address - Post Office': app.permanentAddress?.post || '',
+      'Permanent Address - Village/Road': app.permanentAddress?.village || '',
+      'Qualification 1 Exam': app.qualifications?.[0]?.examName || 'SSC',
+      'Qualification 1 Group': app.qualifications?.[0]?.divisionOrGroup || '',
+      'Qualification 1 Board': app.qualifications?.[0]?.board || '',
+      'Qualification 1 Passing Year': app.qualifications?.[0]?.passingYear || '',
+      'Qualification 1 GPA': app.qualifications?.[0]?.gpa || '',
+      'Qualification 2 Exam': app.qualifications?.[1]?.examName || '',
+      'Qualification 2 Group': app.qualifications?.[1]?.divisionOrGroup || '',
+      'Qualification 2 Board': app.qualifications?.[1]?.board || '',
+      'Qualification 2 Passing Year': app.qualifications?.[1]?.passingYear || '',
+      'Qualification 2 GPA': app.qualifications?.[1]?.gpa || '',
+      'Additional Skills': app.additionalSkills || '',
+      'Reason / Motivation': app.reason || '',
+      'Pledge Accepted': app.pledgeAccepted ? 'Yes' : 'No',
+      'Guardian Consent Accepted': app.guardianConsentAccepted ? 'Yes' : 'No',
+      'Photo Attached': app.avatarUrl ? 'Yes' : 'No',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -261,6 +321,67 @@ export const RecruitmentTab: React.FC = () => {
         >
           <FileSpreadsheet className="w-4 h-4 text-[#1c1c18]" />
           <span>Export All to Excel (.xlsx)</span>
+        </button>
+      </div>
+
+      {/* Recruitment Enrollment Status & Master On/Off Switch */}
+      <div
+        id="card-recruitment-enrollment-toggle"
+        className={`p-5 rounded-3xl border transition-all shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+          isEnrollmentActive
+            ? 'bg-emerald-50/80 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800/60'
+            : 'bg-rose-50/80 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800/60'
+        }`}
+      >
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <span
+              className={`w-3 h-3 rounded-full shrink-0 ${
+                isEnrollmentActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+              }`}
+            />
+            <h3 className="font-bold text-sm sm:text-base text-[#1c1c18] dark:text-[#fcfbf7] flex items-center gap-2">
+              <span>Recruitment Enrollment:</span>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                  isEnrollmentActive
+                    ? 'bg-emerald-200 dark:bg-emerald-900/80 text-emerald-900 dark:text-emerald-200'
+                    : 'bg-rose-200 dark:bg-rose-900/80 text-rose-900 dark:text-rose-200'
+                }`}
+              >
+                {isEnrollmentActive ? 'ON (Open)' : 'OFF (Closed)'}
+              </span>
+            </h3>
+          </div>
+          <p className="text-xs text-[#524d40] dark:text-[#aca596]">
+            {isEnrollmentActive
+              ? 'Enrollment is active. Students can fill out and submit the cadet admission form online.'
+              : 'Enrollment is currently turned OFF. Public visitors will see: "Currently the recuitment is closed any query contact to Platoon HQ".'}
+          </p>
+        </div>
+
+        {/* Big Switch Button */}
+        <button
+          type="button"
+          id="btn-toggle-recruitment-enrollment"
+          onClick={handleToggleEnrollment}
+          className={`shrink-0 px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-all active:scale-95 shadow-xs ${
+            isEnrollmentActive
+              ? 'bg-rose-600 hover:bg-rose-700 text-white'
+              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+          }`}
+        >
+          {isEnrollmentActive ? (
+            <>
+              <XCircle className="w-4 h-4" />
+              <span>Turn Recruitment OFF (Close Enrolment)</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Turn Recruitment ON (Open Enrolment)</span>
+            </>
+          )}
         </button>
       </div>
 
@@ -632,58 +753,6 @@ export const RecruitmentTab: React.FC = () => {
                   className="w-full bg-white dark:bg-[#252420] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-mono"
                 />
               </div>
-            </div>
-          </div>
-
-          {/* Custom Header and Footer for Application Form & A4 PDF */}
-          <div className="p-4 rounded-2xl bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3]/60 dark:border-[#423e35] space-y-4">
-            <div>
-              <h4 className="font-bold text-xs text-[#1c1c18] dark:text-[#fcfbf7] flex items-center gap-1.5">
-                <Image className="w-4 h-4 text-[#6b5e10] dark:text-[#eedc82]" />
-                <span>Custom Header & Footer (Form & A4 Printable PDF)</span>
-              </h4>
-              <p className="text-[11px] text-[#7c7767] dark:text-[#aca596] mt-0.5">
-                Upload institutional banners or platoon circular letterheads via Cloudinary. These render at the top & bottom of the public form and on every applicant's downloaded A4 PDF slip.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <CloudinaryUploader
-                  label="Form & A4 PDF Header Banner (Cloudinary)"
-                  value={announcementForm.headerImageUrl}
-                  currentImageUrl={announcementForm.headerImageUrl}
-                  folder="recruitment/headers"
-                  onChange={(url) => setAnnouncementForm({ ...announcementForm, headerImageUrl: url })}
-                  onUploadComplete={(url) => setAnnouncementForm({ ...announcementForm, headerImageUrl: url })}
-                  helpText="Recommended: 1200x250px PNG/JPG letterhead banner."
-                />
-              </div>
-
-              <div>
-                <CloudinaryUploader
-                  label="Form & A4 PDF Footer Banner (Cloudinary)"
-                  value={announcementForm.footerImageUrl}
-                  currentImageUrl={announcementForm.footerImageUrl}
-                  folder="recruitment/footers"
-                  onChange={(url) => setAnnouncementForm({ ...announcementForm, footerImageUrl: url })}
-                  onUploadComplete={(url) => setAnnouncementForm({ ...announcementForm, footerImageUrl: url })}
-                  helpText="Optional: Institutional stamp or footer banner."
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                Custom Footer Notice / Contact Text
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Inquiries: Room 102 (BNCC Office) or call Platoon Sergeant at 01700-000000"
-                value={announcementForm.footerText || ''}
-                onChange={(e) => setAnnouncementForm({ ...announcementForm, footerText: e.target.value })}
-                className="w-full bg-white dark:bg-[#252420] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-xs text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
-              />
             </div>
           </div>
 

@@ -242,7 +242,7 @@ export const JoinRecruitmentModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
 }> = ({ isOpen, onClose }) => {
-  const { recruitmentConfig, recruitmentAnnouncement, recruitmentFields, addRecruitmentApplicant } = useAdminData();
+  const { recruitmentConfig, recruitmentAnnouncement, isRecruitmentOpen, recruitmentFields, addRecruitmentApplicant } = useAdminData();
   const [formData, setFormData] = useState<RecruitmentFormState>({
     fullName: '',
     email: '',
@@ -265,7 +265,7 @@ export const JoinRecruitmentModal: React.FC<{
 
   if (!isOpen) return null;
 
-  const isFormActive = recruitmentAnnouncement ? recruitmentAnnouncement.isActive !== false : true;
+  const isFormActive = isRecruitmentOpen !== undefined ? isRecruitmentOpen : (recruitmentAnnouncement ? recruitmentAnnouncement.isActive !== false : true);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -340,14 +340,14 @@ export const JoinRecruitmentModal: React.FC<{
 
           {!isFormActive ? (
             <div className="py-8 text-center space-y-3">
-              <div className="w-12 h-12 mx-auto rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 flex items-center justify-center">
-                <Clock className="w-6 h-6" />
+              <div className="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 flex items-center justify-center">
+                <AlertCircle className="w-6 h-6" />
               </div>
-              <h4 className="text-lg font-bold text-[#1c1c18] dark:text-[#fcfbf7]">
-                Recruitment Window is Currently Closed
+              <h4 className="text-base sm:text-lg font-bold text-[#1c1c18] dark:text-[#fcfbf7]">
+                Currently the recuitment is closed any query contact to Platoon HQ
               </h4>
               <p className="text-xs text-[#7c7767] dark:text-[#aca596] max-w-sm mx-auto">
-                Applications are not actively being accepted at this moment. Please monitor the Cadet Notice Board for the next batch announcement.
+                The online cadet admission portal is currently inactive. For inquiries or updates, please visit BNCC Platoon HQ (Room 123, Front Building, NGDC Rajshahi).
               </p>
               <button onClick={onClose} className="japandi-btn-secondary text-xs py-2 px-4 mt-2">
                 Close Window

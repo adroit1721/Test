@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { MemoryItem } from '../types';
 import { useAdminData } from '../context/AdminDataContext';
-import { Image as ImageIcon, MapPin, Calendar, Maximize2, Upload, CheckCircle2, Video, Play } from 'lucide-react';
+import { MapPin, Calendar, Maximize2, Video, Play } from 'lucide-react';
 import { framerFadeUp } from '../utils/motionVariants';
 
 interface MemoriesViewProps {
@@ -10,49 +10,14 @@ interface MemoriesViewProps {
 }
 
 export const MemoriesView: React.FC<MemoriesViewProps> = ({ onSelectMemory }) => {
-  const { memories, addMemory } = useAdminData();
+  const { memories } = useAdminData();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
-
-  // New photo/video contribution state
-  const [newTitle, setNewTitle] = useState('');
-  const [newCategory, setNewCategory] = useState<'parade' | 'training' | 'relief' | 'awards'>('training');
-  const [newCaption, setNewCaption] = useState('');
-  const [newUrl, setNewUrl] = useState('');
-  const [newType, setNewType] = useState<'image' | 'video'>('image');
 
   const filtered = memories.filter((item) => {
     if (selectedCategory === 'all') return true;
     if (selectedCategory === 'video') return item.type === 'video' || !!item.videoUrl;
     return item.category === selectedCategory;
   });
-
-  const handleUploadSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim()) return;
-
-    addMemory({
-      title: newTitle.trim(),
-      description: newCaption.trim() || undefined,
-      category: newCategory,
-      type: newType,
-      imageUrl: newUrl || 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?q=80&w=800&auto=format&fit=crop',
-      videoUrl: newType === 'video' ? (newUrl || 'https://www.youtube.com/embed/dQw4w9WgXcQ') : undefined,
-      altText: newTitle.trim(),
-      date: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-      location: 'New Govt. Degree College, Rajshahi',
-    });
-
-    setUploadSuccess(true);
-    setTimeout(() => {
-      setUploadSuccess(false);
-      setShowUploadModal(false);
-      setNewTitle('');
-      setNewCaption('');
-      setNewUrl('');
-    }, 1500);
-  };
 
   return (
     <div className="space-y-10 max-w-[1120px] mx-auto px-4 w-full">
@@ -70,19 +35,10 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({ onSelectMemory }) =>
           <h1 className="text-3xl md:text-4xl font-extrabold text-[#1c1c18] dark:text-[#fcfbf7] tracking-tight">
             Memories & Historic Feats
           </h1>
-          <p className="text-sm md:text-base text-[#4a4738] dark:text-[#aca596] max-w-lg">
+          <p className="text-sm md:text-base text-[#4a4738] dark:text-[#aca596] max-w-xl">
             Visual documentation of drills, annual camps, humanitarian relief operations, and video memories.
           </p>
         </div>
-
-        <button
-          id="btn-upload-memory"
-          onClick={() => setShowUploadModal(true)}
-          className="japandi-btn-secondary text-sm bg-[#fcf9f3] dark:bg-[#26241f] shrink-0 hover:scale-103 active:scale-95 transition-all cursor-pointer"
-        >
-          <Upload className="w-4 h-4 text-[#6b5e10] dark:text-[#eedc82]" />
-          <span>Submit Photo / Video</span>
-        </button>
       </motion.section>
 
       {/* Categories Bar */}
@@ -181,109 +137,6 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({ onSelectMemory }) =>
           </motion.div>
         ))}
       </section>
-
-      {/* Photo / Video Contribution Modal */}
-      {showUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3] dark:border-[#423e35] rounded-3xl max-w-md w-full p-6 md:p-8 space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#cdc6b3] dark:border-[#423e35] pb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-[#eedc82]/50 text-[#6b5e10] dark:text-[#eedc82]">
-                  <ImageIcon className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-[#1c1c18] dark:text-[#fcfbf7]">Submit Cadet Memory</h3>
-                  <p className="text-xs text-[#7c7767]">Photo or Video for the platoon gallery</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowUploadModal(false)}
-                className="text-xs bg-[#f0eee8] dark:bg-[#25231c] px-3 py-1.5 rounded-full font-bold text-[#1c1c18] dark:text-[#fcfbf7]"
-              >
-                Close
-              </button>
-            </div>
-
-            {uploadSuccess ? (
-              <div className="p-6 text-center space-y-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800">
-                <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-                <h4 className="font-bold text-[#1c1c18] dark:text-[#fcfbf7]">Submitted Successfully!</h4>
-                <p className="text-xs text-[#695c4e] dark:text-[#aca596]">Your media has been added to the platoon memory archive.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleUploadSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">Title *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Firing Range Drill at Cantonment"
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] p-2.5 rounded-xl text-xs outline-none focus:border-[#1c1c18] text-[#1c1c18] dark:text-[#fcfbf7]"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">Type</label>
-                    <select
-                      value={newType}
-                      onChange={(e) => setNewType(e.target.value as any)}
-                      className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] p-2.5 rounded-xl text-xs outline-none text-[#1c1c18] dark:text-[#fcfbf7]"
-                    >
-                      <option value="image">Photograph</option>
-                      <option value="video">Video</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">Category</label>
-                    <select
-                      value={newCategory}
-                      onChange={(e) => setNewCategory(e.target.value as any)}
-                      className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] p-2.5 rounded-xl text-xs outline-none text-[#1c1c18] dark:text-[#fcfbf7]"
-                    >
-                      <option value="training">Field Training</option>
-                      <option value="parade">Parade & Drills</option>
-                      <option value="relief">Disaster Relief</option>
-                      <option value="awards">Award Ceremonies</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">Media URL</label>
-                  <input
-                    type="url"
-                    placeholder="https://... (image or video URL)"
-                    value={newUrl}
-                    onChange={(e) => setNewUrl(e.target.value)}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] p-2.5 rounded-xl text-xs outline-none focus:border-[#1c1c18] text-[#1c1c18] dark:text-[#fcfbf7]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">Caption (Optional)</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Optional description or memory notes..."
-                    value={newCaption}
-                    onChange={(e) => setNewCaption(e.target.value)}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] p-2.5 rounded-xl text-xs outline-none focus:border-[#1c1c18] resize-none text-[#1c1c18] dark:text-[#fcfbf7]"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="japandi-btn-primary w-full py-2.5 text-xs font-bold cursor-pointer"
-                >
-                  Save to Archive
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
