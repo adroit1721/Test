@@ -425,7 +425,7 @@ const DEFAULT_CONTACT_CONFIG: ContactConfig = {
   emailPrimary: 'bncc.ngdc@gmail.com',
   emailSecondary: 'puo.matin@ngdc.ac.bd',
   officeHours: 'Sunday to Thursday: 09:00 AM - 04:00 PM | Friday/Saturday: Parade Hours 06:30 AM - 11:00 AM',
-  mapEmbedUrl: 'https://maps.google.com/?q=New+Govt+Degree+College+Rajshahi',
+  mapEmbedUrl: 'https://maps.google.com/maps?q=New+Govt.+Degree+College,+Rajshahi,+Bangladesh&t=&z=16&ie=UTF8&iwloc=&output=embed',
 };
 
 // Default Contact Messages Inbox
@@ -790,6 +790,36 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Timestamp tracker for local writes to prevent broadcast echo loops from overwriting active admin edits
   const lastLocalWriteTimestamps = useRef<Record<string, number>>({});
+
+  const mergeCadetLists = (local: CadetUserAccount[], remote: CadetUserAccount[]): CadetUserAccount[] => {
+    if (!Array.isArray(remote) || remote.length === 0) return local || [];
+    if (!Array.isArray(local) || local.length === 0) return remote || [];
+    const map = new Map<string, CadetUserAccount>();
+    for (const c of local) {
+      if (c && c.id) map.set(c.id, c);
+      else if (c && c.cadetNo) map.set(`cadetno-${c.cadetNo.toUpperCase()}`, c);
+    }
+    for (const r of remote) {
+      if (!r) continue;
+      const key =
+        (r.id && map.has(r.id) && r.id) ||
+        (r.cadetNo && map.has(`cadetno-${r.cadetNo.toUpperCase()}`) && `cadetno-${r.cadetNo.toUpperCase()}`);
+      if (key) {
+        const existing = map.get(key)!;
+        const merged: any = { ...existing };
+        for (const [k, v] of Object.entries(r)) {
+          if (v !== undefined && v !== null && v !== '') {
+            merged[k] = v;
+          }
+        }
+        map.set(existing.id || key, merged);
+      } else if (r.id) {
+        map.set(r.id, r);
+      }
+    }
+    return Array.from(map.values());
+  };
+
   const saveSettingWithTimestamp = (key: string, value: any) => {
     lastLocalWriteTimestamps.current[key] = Date.now();
     if (typeof window !== 'undefined') {
@@ -827,6 +857,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (settings['ngdc_blogs']) setBlogs(parseArray(settings['ngdc_blogs']));
         if (settings['ngdc_memories']) setMemories(parseArray(settings['ngdc_memories']));
         if (settings['ngdc_cadet_reg_fields']) setCadetRegFields(parseArray(settings['ngdc_cadet_reg_fields']));
+        if (settings['ngdc_cadet_users_v8']) {
+          const remoteCadets = parseArray(settings['ngdc_cadet_users_v8']);
+          if (remoteCadets.length > 0) {
+            setCadetUsers((prev) => mergeCadetLists(prev, remoteCadets));
+          }
+        }
         if (settings['ngdc_honor_entries_3cat']) setHonorEntries(parseArray(settings['ngdc_honor_entries_3cat']));
         if (settings['ngdc_contact_config']) setContactConfig(parseObject(settings['ngdc_contact_config'], DEFAULT_CONTACT_CONFIG));
         if (settings['ngdc_contact_messages']) setContactMessages(parseArray(settings['ngdc_contact_messages']));
@@ -868,6 +904,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         else if (key === 'ngdc_blogs') setBlogs(parseArray(val));
         else if (key === 'ngdc_memories') setMemories(parseArray(val));
         else if (key === 'ngdc_cadet_reg_fields') setCadetRegFields(parseArray(val));
+        else if (key === 'ngdc_cadet_users_v8') {
+          const remoteCadets = parseArray(val);
+          if (remoteCadets.length > 0) {
+            setCadetUsers((prev) => mergeCadetLists(prev, remoteCadets));
+          }
+        }
         else if (key === 'ngdc_honor_entries_3cat') setHonorEntries(parseArray(val));
         else if (key === 'ngdc_contact_config') setContactConfig(parseObject(val, DEFAULT_CONTACT_CONFIG));
         else if (key === 'ngdc_contact_messages') setContactMessages(parseArray(val));
@@ -1078,7 +1120,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const setCadetUsersAndSave = (val: any) => {
     setCadetUsers((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
-      upsertSiteSetting('ngdc_cadet_users_v8', next);
+      saveSettingWithTimestamp('ngdc_cadet_users_v8', next);
       return next;
     });
   };
@@ -1513,10 +1555,13 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [cadetUsers, setCadetUsers] = useState<CadetUserAccount[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngdc_cadet_users_v8');
-      if (saved) {
-        const parsed = parseArray(saved);
-        if (parsed.length > 0) return parsed;
+      const keys = ['ngdc_cadet_users_v8', 'ngdc_cadet_users_v7', 'ngdc_cadet_users'];
+      for (const k of keys) {
+        const saved = localStorage.getItem(k);
+        if (saved) {
+          const parsed = parseArray(saved);
+          if (parsed.length > 0) return parsed;
+        }
       }
     }
     return DEFAULT_CADET_USERS; // Empty array [] by default - Admin inputs cadets
@@ -1528,7 +1573,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       try {
         const remote = await fetchCadetsFromSupabase();
         if (remote && Array.isArray(remote) && remote.length > 0) {
-          setCadetUsersAndSave(remote);
+          setCadetUsersAndSave((prev: CadetUserAccount[]) => mergeCadetLists(prev, remote));
         }
       } catch (err) {
         console.warn('Error fetching cadets from Supabase:', err);
@@ -1603,7 +1648,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const updated: CadetUserAccount = {
           ...c,
           cadetNo: options.cadetNo?.trim() || c.cadetNo,
-          password: options.password.trim(),
+          password: options.password?.trim() || c.password,
           category: targetCategory,
           section: options.section || c.section || (isExCadet ? 'Ex-cadet Platoon' : 'Section 01'),
           rank: options.rank || c.rank || (isExCadet ? 'Ex-Cadet' : 'Cadet (CDT)'),

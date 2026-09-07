@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAdminData } from '../context/AdminDataContext';
 import {
   User,
@@ -17,12 +17,16 @@ import {
   AlertCircle,
   Sparkles,
   ArrowRight,
+  ArrowLeft,
+  UserCheck,
   RefreshCw,
 } from 'lucide-react';
 import { CadetUserAccount, PlatoonCategory } from '../types';
 
 interface CadetRegistrationFormProps {
   isAdmin?: boolean;
+  editingCadet?: CadetUserAccount | null;
+  onCancelEdit?: () => void;
   onSuccess?: (cadet: CadetUserAccount) => void;
   onGoToLogin?: (cadetNo?: string) => void;
 }
@@ -36,20 +40,23 @@ const CADET_BATCHES = Array.from(
 );
 const EX_CADET_BATCHES = CADET_BATCHES;
 
-const EX_CADET_RANKS = [
-  'CUO/ Cadet Under Officer',
-  'Cadet Seargent',
-  'Cadet Corporal',
-  'Cadet Lance Corporal',
-  'Cadet',
+export const STANDARD_CADET_RANKS = [
+  'Cadet Under Officer (CUO)',
+  'Cadet Seargent (SGT)',
+  'Cadet Corporal (CPL)',
+  'Cadet Lance Corporal (LCPL)',
+  'Cadet (CDT)',
 ];
+export const EX_CADET_RANKS = STANDARD_CADET_RANKS;
 
 export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
   isAdmin = false,
+  editingCadet = null,
+  onCancelEdit,
   onSuccess,
   onGoToLogin,
 }) => {
-  const { cadetRegister } = useAdminData();
+  const { cadetRegister, updateCadetUser } = useAdminData();
 
   // Tab: 'Current' (Currently serving) or 'Ex-cadet' (Ex-cadets Alumni)
   const [cadetType, setCadetType] = useState<'Current' | 'Ex-cadet'>('Current');
@@ -91,7 +98,7 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
   // Ex-Cadets Alumni Form State
   const [exForm, setExForm] = useState({
     avatarUrl: '',
-    rank: 'CUO/ Cadet Under Officer',
+    rank: 'Cadet Under Officer (CUO)',
     batch: '',
     cadetNo: '',
     password: '',
@@ -118,6 +125,67 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successCadet, setSuccessCadet] = useState<CadetUserAccount | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sync state if editingCadet changes
+  useEffect(() => {
+    if (editingCadet) {
+      const isEx = editingCadet.cadetType === 'Ex-cadet' || editingCadet.category === 'Ex-cadets';
+      if (isEx) {
+        setCadetType('Ex-cadet');
+        setExForm({
+          avatarUrl: editingCadet.avatarUrl || '',
+          rank: editingCadet.rank || 'Cadet Under Officer (CUO)',
+          batch: editingCadet.batch || '',
+          cadetNo: editingCadet.cadetNo || '',
+          password: editingCadet.password || '',
+          name: editingCadet.name || '',
+          nameBangla: editingCadet.nameBangla || '',
+          currentJob: editingCadet.currentJob || '',
+          dob: editingCadet.dob || '',
+          bloodGroup: editingCadet.bloodGroup || 'B+',
+          gender: (editingCadet.gender as any) || 'Male',
+          religion: editingCadet.religion || 'Islam',
+          presentAddress: editingCadet.presentAddress || '',
+          permanentAddress: editingCadet.permanentAddress || '',
+          phone: editingCadet.phone || '',
+          socialMedia: editingCadet.socialMedia || '',
+          email: editingCadet.email || '',
+          additionalSkills: editingCadet.additionalSkills || '',
+          achievements: editingCadet.achievements || '',
+        });
+      } else {
+        setCadetType('Current');
+        setServingForm({
+          avatarUrl: editingCadet.avatarUrl || '',
+          platoon: (editingCadet.platoon || editingCadet.category || 'Male Platoon') as any,
+          section: editingCadet.section || 'Section 01',
+          rank: editingCadet.rank || 'Cadet (CDT)',
+          batch: editingCadet.batch || `Batch-${CURRENT_YEAR}`,
+          cadetNo: editingCadet.cadetNo || '',
+          password: editingCadet.password || '',
+          name: editingCadet.name || '',
+          nameBangla: editingCadet.nameBangla || '',
+          fatherName: editingCadet.fatherName || '',
+          fatherNameBangla: editingCadet.fatherNameBangla || '',
+          motherName: editingCadet.motherName || '',
+          motherNameBangla: editingCadet.motherNameBangla || '',
+          dob: editingCadet.dob || '',
+          bloodGroup: editingCadet.bloodGroup || 'B+',
+          gender: (editingCadet.gender as any) || 'Male',
+          religion: editingCadet.religion || 'Islam',
+          className: editingCadet.className || '11th',
+          department: editingCadet.department || '',
+          presentAddress: editingCadet.presentAddress || '',
+          permanentAddress: editingCadet.permanentAddress || '',
+          phone: editingCadet.phone || '',
+          guardianPhone: editingCadet.guardianPhone || '',
+          email: editingCadet.email || '',
+          additionalSkills: editingCadet.additionalSkills || '',
+          achievements: editingCadet.achievements || '',
+        });
+      }
+    }
+  }, [editingCadet]);
 
   // File Upload Helper (converts image to base64 DataURL)
   const handleImageFile = (
@@ -205,10 +273,19 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
       additionalSkills: servingForm.additionalSkills.trim(),
       achievements: servingForm.achievements.trim(),
       avatarUrl: servingForm.avatarUrl.trim(),
-      status: isAdmin ? 'Active' : 'Pending Approval',
-      isApproved: isAdmin ? true : false,
+      status: editingCadet ? (editingCadet.status || (isAdmin ? 'Active' : 'Pending Approval')) : (isAdmin ? 'Active' : 'Pending Approval'),
+      isApproved: editingCadet ? editingCadet.isApproved : (isAdmin ? true : false),
       collegeId: servingForm.cadetNo.trim().toUpperCase(),
     };
+
+    if (editingCadet) {
+      updateCadetUser(editingCadet.id, cadetPayload);
+      setIsSubmitting(false);
+      const updated = { ...editingCadet, ...cadetPayload } as CadetUserAccount;
+      setSuccessCadet(updated);
+      if (onSuccess) onSuccess(updated);
+      return;
+    }
 
     const res = cadetRegister(cadetPayload);
     setIsSubmitting(false);
@@ -277,10 +354,19 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
       additionalSkills: exForm.additionalSkills.trim(),
       achievements: exForm.achievements.trim(),
       avatarUrl: exForm.avatarUrl.trim(),
-      status: isAdmin ? 'Alumni' : 'Pending Approval',
-      isApproved: isAdmin ? true : false,
+      status: editingCadet ? (editingCadet.status || (isAdmin ? 'Alumni' : 'Pending Approval')) : (isAdmin ? 'Alumni' : 'Pending Approval'),
+      isApproved: editingCadet ? editingCadet.isApproved : (isAdmin ? true : false),
       collegeId: exForm.cadetNo.trim().toUpperCase(),
     };
+
+    if (editingCadet) {
+      updateCadetUser(editingCadet.id, cadetPayload);
+      setIsSubmitting(false);
+      const updated = { ...editingCadet, ...cadetPayload } as CadetUserAccount;
+      setSuccessCadet(updated);
+      if (onSuccess) onSuccess(updated);
+      return;
+    }
 
     const res = cadetRegister(cadetPayload);
     setIsSubmitting(false);
@@ -439,7 +525,17 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
         )}
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-          {onGoToLogin && (
+          {isAdmin && onCancelEdit && (
+            <button
+              onClick={onCancelEdit}
+              className="japandi-btn-primary w-full sm:w-auto px-6 py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Return to Cadet Directory</span>
+            </button>
+          )}
+
+          {onGoToLogin && !isAdmin && (
             <button
               onClick={() => onGoToLogin(successCadet.cadetNo)}
               className="japandi-btn-primary w-full sm:w-auto px-6 py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
@@ -454,7 +550,7 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
             className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold rounded-full border border-[#cdc6b3] dark:border-[#464237] text-[#5c5746] dark:text-[#aca596] hover:text-[#1c1c18] dark:hover:text-white transition-all cursor-pointer flex items-center justify-center gap-1.5"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Register Another Cadet</span>
+            <span>{editingCadet ? 'Edit Another Cadet' : 'Register Another Cadet'}</span>
           </button>
         </div>
       </div>
@@ -463,6 +559,34 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
 
   return (
     <div className="bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3]/60 dark:border-[#423e35] p-5 sm:p-8 rounded-3xl space-y-6 shadow-xs">
+      {/* Editing Cadet Banner (if in edit mode) */}
+      {editingCadet && (
+        <div className="p-4 bg-amber-500/15 dark:bg-amber-950/30 border border-amber-500/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="p-2.5 rounded-xl bg-amber-500/20 text-amber-800 dark:text-amber-300">
+              <UserCheck className="w-5 h-5" />
+            </span>
+            <div>
+              <h4 className="font-bold text-sm text-[#1c1c18] dark:text-[#fcfbf7]">
+                Editing Cadet Record: {editingCadet.name}
+              </h4>
+              <p className="text-xs text-[#695c4e] dark:text-[#aca596]">
+                Cadet No: <strong className="font-mono font-bold text-[#1c1c18] dark:text-[#fcfbf7]">{editingCadet.cadetNo}</strong> • Platoon: <strong>{editingCadet.category}</strong>
+              </p>
+            </div>
+          </div>
+          {onCancelEdit && (
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="japandi-btn-secondary text-xs py-2 px-3.5 font-bold cursor-pointer shrink-0"
+            >
+              Cancel Edit & Return
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Header & Tab Selector */}
       <div className="space-y-4 border-b border-[#cdc6b3]/50 dark:border-[#38342c] pb-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -471,18 +595,20 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
               Official Platoon Enrolment Form
             </span>
             <h3 className="text-xl sm:text-2xl font-black text-[#1c1c18] dark:text-[#fcfbf7] tracking-tight">
-              Cadet Directory Registration
+              {editingCadet ? `Edit Cadet: ${editingCadet.name}` : 'Cadet Directory Registration'}
             </h3>
             <p className="text-xs text-[#695c4e] dark:text-[#aca596] mt-0.5">
               {isAdmin
-                ? 'Admin portal registration: Cadets added here are directly verified and saved to the directory.'
+                ? (editingCadet
+                    ? 'Update cadet profile fields below. Password, ranks, platoon, and addresses can be adjusted here.'
+                    : 'Admin portal registration: Cadets added here are directly verified and saved to the directory.')
                 : 'Select cadet status type below. Public submissions require Platoon Admin approval before directory addition and portal login.'}
             </p>
           </div>
 
           {isAdmin ? (
             <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full text-xs font-bold self-start sm:self-auto">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Direct Directory Addition
+              <CheckCircle2 className="w-3.5 h-3.5" /> {editingCadet ? 'Admin Edit Mode' : 'Direct Directory Addition'}
             </div>
           ) : (
             <div className="inline-flex items-center gap-1.5 bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full text-xs font-bold self-start sm:self-auto">
@@ -639,13 +765,13 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
                 <select
                   value={servingForm.rank}
                   onChange={(e) => setServingForm({ ...servingForm, rank: e.target.value })}
-                  className="w-full bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] font-semibold outline-none"
+                  className="w-full bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2.5 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] font-semibold outline-none cursor-pointer"
                 >
-                  <option value="Cadet Under Officer (CUO)">Cadet Under Officer (CUO)</option>
-                  <option value="Cadet Sergeant (SGT)">Cadet Sergeant (SGT)</option>
-                  <option value="Cadet Corporal (CPL)">Cadet Corporal (CPL)</option>
-                  <option value="Lance Corporal (LCPL)">Lance Corporal (LCPL)</option>
-                  <option value="Cadet (CDT)">Cadet (CDT)</option>
+                  {STANDARD_CADET_RANKS.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -1049,7 +1175,13 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
           >
             <CheckCircle2 className="w-4 h-4" />
             <span>
-              {isSubmitting ? 'Registering Cadet...' : 'Add Currently Serving Cadet Directly to Directory'}
+              {isSubmitting
+                ? (editingCadet ? 'Updating Cadet Record...' : 'Registering Cadet...')
+                : editingCadet
+                ? 'Update Currently Serving Cadet Record'
+                : isAdmin
+                ? 'Add Currently Serving Cadet Directly to Directory'
+                : 'Submit Registration for Platoon Approval'}
             </span>
           </button>
         </form>
@@ -1448,7 +1580,13 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
           >
             <CheckCircle2 className="w-4 h-4" />
             <span>
-              {isSubmitting ? 'Registering Ex-Cadet...' : 'Add Ex-Cadet (Alumni) Directly to Directory'}
+              {isSubmitting
+                ? (editingCadet ? 'Updating Cadet Record...' : 'Registering Ex-Cadet...')
+                : editingCadet
+                ? 'Update Ex-Cadet Record'
+                : isAdmin
+                ? 'Add Ex-Cadet (Alumni) Directly to Directory'
+                : 'Submit Ex-Cadet Registration for Platoon Approval'}
             </span>
           </button>
         </form>

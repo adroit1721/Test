@@ -13,7 +13,6 @@ import { CadetCornerTab } from './tabs/CadetCornerTab';
 import { HonorBoardTab } from './tabs/HonorBoardTab';
 import { ContactTab } from './tabs/ContactTab';
 import { RecruitmentTab } from './tabs/RecruitmentTab';
-import { FooterTab } from './tabs/FooterTab';
 
 interface AdminViewProps {
   onLogout: () => void;
@@ -51,8 +50,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
         return <ContactTab />;
       case 'recruitment':
         return <RecruitmentTab />;
-      case 'footer':
-        return <FooterTab />;
       default:
         return <HomeTab />;
     }

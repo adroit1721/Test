@@ -71,6 +71,14 @@ export function resetSupabaseInstance(): void {
  * Format CadetUserAccount into Supabase Postgres database record
  */
 function mapCadetToSupabaseRecord(cadet: CadetUserAccount) {
+  // Store the complete full cadet record inside custom_fields.raw_cadet_data
+  // so ALL registration form fields (Bangla names, parents, dob, address, etc.)
+  // are persisted faithfully without data loss across sessions.
+  const customFields = {
+    ...((cadet as any).customFields || {}),
+    raw_cadet_data: { ...cadet },
+  };
+
   return {
     id: cadet.id,
     cadet_no: cadet.cadetNo,
@@ -96,7 +104,7 @@ function mapCadetToSupabaseRecord(cadet: CadetUserAccount) {
     cadet_type: cadet.cadetType || 'Current',
     is_approved: cadet.isApproved !== undefined ? cadet.isApproved : true,
     avatar_url: cadet.avatarUrl || '',
-    custom_fields: (cadet as any).customFields || {},
+    custom_fields: customFields,
     updated_at: new Date().toISOString(),
   };
 }
@@ -105,33 +113,49 @@ function mapCadetToSupabaseRecord(cadet: CadetUserAccount) {
  * Format Supabase Postgres row back into CadetUserAccount
  */
 function mapSupabaseRecordToCadet(row: any): CadetUserAccount {
+  const raw = row.custom_fields?.raw_cadet_data || {};
   return {
     id: row.id,
-    cadetNo: row.cadet_no || '',
-    password: row.password || '',
-    name: row.name || '',
-    category: row.category || 'Male Platoon',
-    section: row.section || 'Section 01',
-    rank: row.rank || 'Cadet',
-    gender: row.gender || 'Male',
-    appointment: row.appointment || 'Cadet',
-    platoon: row.platoon || row.category || 'Male Platoon',
-    batch: row.batch || 'Batch 24',
-    collegeId: row.college_id || '',
-    department: row.department || '',
-    bloodGroup: row.blood_group || 'B+',
-    phone: row.phone || '',
-    email: row.email || '',
-    joiningDate: row.joining_date || '',
-    attendancePercentage: row.attendance_percentage ?? 100,
-    paradesAttended: row.parades_attended ?? 0,
-    totalParades: row.total_parades ?? 0,
-    campsAttended: [],
-    certificates: [],
-    status: row.status || 'Active',
-    cadetType: row.cadet_type || 'Current',
+    cadetNo: row.cadet_no || raw.cadetNo || '',
+    password: row.password || raw.password || '',
+    name: row.name || raw.name || '',
+    nameBangla: raw.nameBangla || '',
+    fatherName: raw.fatherName || '',
+    fatherNameBangla: raw.fatherNameBangla || '',
+    motherName: raw.motherName || '',
+    motherNameBangla: raw.motherNameBangla || '',
+    dob: raw.dob || '',
+    religion: raw.religion || 'Islam',
+    className: raw.className || '11th',
+    category: row.category || raw.category || 'Male Platoon',
+    section: row.section || raw.section || 'Section 01',
+    rank: row.rank || raw.rank || 'Cadet',
+    gender: row.gender || raw.gender || 'Male',
+    appointment: row.appointment || raw.appointment || 'Cadet',
+    platoon: row.platoon || raw.platoon || row.category || 'Male Platoon',
+    batch: row.batch || raw.batch || 'Batch 24',
+    collegeId: row.college_id || raw.collegeId || '',
+    department: row.department || raw.department || '',
+    bloodGroup: row.blood_group || raw.bloodGroup || 'B+',
+    presentAddress: raw.presentAddress || '',
+    permanentAddress: raw.permanentAddress || '',
+    phone: row.phone || raw.phone || '',
+    guardianPhone: raw.guardianPhone || '',
+    email: row.email || raw.email || '',
+    currentJob: raw.currentJob || '',
+    socialMedia: raw.socialMedia || '',
+    additionalSkills: raw.additionalSkills || '',
+    achievements: raw.achievements || '',
+    joiningDate: row.joining_date || raw.joiningDate || '',
+    attendancePercentage: row.attendance_percentage ?? raw.attendancePercentage ?? 100,
+    paradesAttended: row.parades_attended ?? raw.paradesAttended ?? 0,
+    totalParades: row.total_parades ?? raw.totalParades ?? 0,
+    campsAttended: raw.campsAttended || [],
+    certificates: raw.certificates || [],
+    status: row.status || raw.status || 'Active',
+    cadetType: row.cadet_type || raw.cadetType || 'Current',
     isApproved: row.is_approved !== false,
-    avatarUrl: row.avatar_url || '',
+    avatarUrl: row.avatar_url || raw.avatarUrl || '',
     ...(row.custom_fields ? { customFields: row.custom_fields } : {}),
   };
 }
@@ -295,6 +319,7 @@ export async function fetchSiteSettings(): Promise<Record<string, any> | null> {
         'ngdc_blogs',
         'ngdc_memories',
         'ngdc_cadet_reg_fields',
+        'ngdc_cadet_users_v8',
         'ngdc_honor_entries_3cat',
         'ngdc_contact_config',
         'ngdc_contact_messages',

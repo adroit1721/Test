@@ -246,45 +246,79 @@ export const CadetRankHierarchyTree: React.FC = () => {
 
   // Active serving approved cadets from Admin Context (NO hardcoded demo fallbacks)
   const servingCadets = useMemo(() => {
-    return cadetUsers.filter(
-      (c) => c.isApproved && c.status !== 'Pending Approval' && c.cadetType !== 'Ex-cadet'
-    );
+    return cadetUsers.filter((c) => {
+      if (!c) return false;
+      const type = (c.cadetType || '').toLowerCase();
+      const cat = (c.category || c.platoon || '').toLowerCase();
+      const status = (c.status || '').toLowerCase();
+      if (type.includes('ex') || cat.includes('ex') || status.includes('alumni')) {
+        return false;
+      }
+      if (status.includes('pending') || c.isApproved === false) {
+        return false;
+      }
+      return true;
+    });
   }, [cadetUsers]);
 
   // Rank normalizers to match both official designations & variants entered by admin
   const normalize = (str?: string) => (str || '').toLowerCase().trim();
 
-  const isCUO = (rank: string) => {
+  const isCUO = (rank?: string) => {
     const r = normalize(rank);
     return r.includes('under officer') || r.includes('cuo');
   };
 
-  const isSergeant = (rank: string) => {
+  const isSergeant = (rank?: string) => {
     const r = normalize(rank);
+    if (isCUO(r)) return false;
     return r.includes('seargent') || r.includes('sergeant') || r.includes('sgt');
   };
 
-  const isCorporal = (rank: string) => {
-    const r = normalize(rank);
-    return r.includes('corporal') && !r.includes('lance') && !r.includes('lcpl');
-  };
-
-  const isLanceCorporal = (rank: string) => {
+  const isLanceCorporal = (rank?: string) => {
     const r = normalize(rank);
     return r.includes('lance') || r.includes('lcpl');
   };
 
-  const isCadet = (rank: string) => {
+  const isCorporal = (rank?: string) => {
     const r = normalize(rank);
-    if (isCUO(rank) || isSergeant(rank) || isCorporal(rank) || isLanceCorporal(rank)) {
+    if (isLanceCorporal(r)) return false;
+    return r.includes('corporal') || r.includes('cpl');
+  };
+
+  const isCadet = (rank?: string) => {
+    const r = normalize(rank);
+    if (isCUO(r) || isSergeant(r) || isCorporal(r) || isLanceCorporal(r)) {
       return false;
     }
-    return r.includes('cadet') || r === '' || r === 'cdt';
+    return true;
   };
 
   // Compute Active Platoon Hierarchy data dynamically matched strictly from the Cadet Users Database
   const platoonData = useMemo(() => {
-    const platoonCadets = servingCadets.filter((c) => c.category === activeTab);
+    const platoonCadets = servingCadets.filter((c) => {
+      const cat = (c.category || c.platoon || '').toLowerCase();
+      const sec = (c.section || '').toLowerCase();
+      if (activeTab === 'Male Platoon') {
+        return (
+          (!cat.includes('female') && (cat.includes('male') || c.gender === 'Male')) &&
+          !cat.includes('band') &&
+          !sec.includes('band')
+        );
+      }
+      if (activeTab === 'Female Platoon') {
+        return (
+          cat.includes('female') ||
+          (c.gender === 'Female' && !cat.includes('band') && !sec.includes('band'))
+        );
+      }
+      if (activeTab === 'Band Platoon') {
+        return cat.includes('band') || sec.includes('band');
+      }
+      return false;
+    });
+
+    const assignedIds = new Set<string>();
 
     // =========================================================================
     // 1. BAND PLATOON HIERARCHY
@@ -296,29 +330,33 @@ export const CadetRankHierarchyTree: React.FC = () => {
     // =========================================================================
     if (activeTab === 'Band Platoon') {
       // 1. Cadet Seargent (01 Head of Band)
-      const sgtCandidate = platoonCadets.find((c) => isSergeant(c.rank));
+      const sgtCandidate = platoonCadets.find((c) => isSergeant(c.rank) && !assignedIds.has(c.id));
+      if (sgtCandidate) assignedIds.add(sgtCandidate.id);
       const sergeant: DisplayCadetNode | null = sgtCandidate
         ? {
             ...sgtCandidate,
-            rank: 'Cadet Seargent',
+            rank: sgtCandidate.rank || 'Cadet Seargent (SGT)',
             role: 'Head of Band Platoon',
           }
         : null;
 
       // 2. Corporals (02 Band Corporals)
-      const cplList = platoonCadets.filter((c) => isCorporal(c.rank));
-      const corporal1: DisplayCadetNode | null = cplList[0]
+      const cplCandidate1 = platoonCadets.find((c) => isCorporal(c.rank) && !assignedIds.has(c.id));
+      if (cplCandidate1) assignedIds.add(cplCandidate1.id);
+      const corporal1: DisplayCadetNode | null = cplCandidate1
         ? {
-            ...cplList[0],
-            rank: 'Cadet Corporal',
+            ...cplCandidate1,
+            rank: cplCandidate1.rank || 'Cadet Corporal (CPL)',
             role: 'Band Section Senior NCO',
           }
         : null;
 
-      const corporal2: DisplayCadetNode | null = cplList[1]
+      const cplCandidate2 = platoonCadets.find((c) => isCorporal(c.rank) && !assignedIds.has(c.id));
+      if (cplCandidate2) assignedIds.add(cplCandidate2.id);
+      const corporal2: DisplayCadetNode | null = cplCandidate2
         ? {
-            ...cplList[1],
-            rank: 'Cadet Corporal',
+            ...cplCandidate2,
+            rank: cplCandidate2.rank || 'Cadet Corporal (CPL)',
             role: 'Band Section Senior NCO',
           }
         : null;
@@ -330,44 +368,78 @@ export const CadetRankHierarchyTree: React.FC = () => {
         { secCode: '03', title: 'Band Section 03', instrumentType: 'Flute & Instrumental' },
       ];
 
-      const remainingLCPLs = platoonCadets.filter((c) => isLanceCorporal(c.rank));
-      const remainingCadets = platoonCadets.filter((c) => isCadet(c.rank));
-
-      const sections = bandSectionsConfig.map((sec, idx) => {
-        // Section LCPL
-        const secLCPL =
+      // Match LCPLs for each band section
+      const bandLCPLs = bandSectionsConfig.map((sec) => {
+        const matched =
           platoonCadets.find(
             (c) =>
               isLanceCorporal(c.rank) &&
+              !assignedIds.has(c.id) &&
               (c.section === sec.title || (c.section && c.section.includes(sec.secCode)))
-          ) || remainingLCPLs[idx];
+          ) || platoonCadets.find((c) => isLanceCorporal(c.rank) && !assignedIds.has(c.id));
 
-        const lcplNode: DisplayCadetNode | null = secLCPL
+        if (matched) assignedIds.add(matched.id);
+        return matched
           ? {
-              ...secLCPL,
-              rank: 'Cadet Lance Corporal',
+              ...matched,
+              rank: matched.rank || 'Cadet Lance Corporal (LCPL)',
               role: `${sec.title} Leader`,
             }
           : null;
+      });
 
-        // 3 Cadets working under this Lance Corporal
+      // Cadets for Band
+      const bandCadetBuckets: DisplayCadetNode[][] = bandSectionsConfig.map(() => []);
+
+      // 1st pass: match specific section
+      bandSectionsConfig.forEach((sec, sIdx) => {
         const secCadets = platoonCadets.filter(
           (c) =>
             isCadet(c.rank) &&
+            !assignedIds.has(c.id) &&
             (c.section === sec.title || (c.section && c.section.includes(sec.secCode)))
         );
+        for (const m of secCadets) {
+          assignedIds.add(m.id);
+          bandCadetBuckets[sIdx].push({
+            ...m,
+            rank: m.rank || 'Cadet (CDT)',
+            role: `${sec.title} Musician`,
+          });
+        }
+      });
 
-        // Map up to 3 slots
-        const cadets: (DisplayCadetNode | null)[] = [0, 1, 2].map((cIdx) => {
-          const matched = secCadets[cIdx] || remainingCadets[idx * 3 + cIdx];
+      // 2nd pass: distribute ALL remaining unassigned band cadets
+      const remainingBandCadets = platoonCadets.filter((c) => !assignedIds.has(c.id));
+      for (const m of remainingBandCadets) {
+        assignedIds.add(m.id);
+        let minIdx = 0;
+        for (let i = 1; i < bandCadetBuckets.length; i++) {
+          if (bandCadetBuckets[i].length < bandCadetBuckets[minIdx].length) {
+            minIdx = i;
+          }
+        }
+        bandCadetBuckets[minIdx].push({
+          ...m,
+          rank: m.rank || 'Cadet (CDT)',
+          role: m.appointment || `${bandSectionsConfig[minIdx].title} Musician`,
+        });
+      }
+
+      const sections = bandSectionsConfig.map((sec, idx) => {
+        const lcplNode = bandLCPLs[idx];
+        const assignedList = bandCadetBuckets[idx];
+        const slotCount = Math.max(3, assignedList.length);
+
+        const cadets: (DisplayCadetNode | null)[] = Array.from({ length: slotCount }).map((_, cIdx) => {
+          const matched = assignedList[cIdx];
           if (matched) {
             return {
               ...matched,
-              rank: 'Cadet',
               role: `${sec.title} Musician ${cIdx + 1}`,
             };
           }
-          return null; // Blank slot (unassigned)
+          return null;
         });
 
         return {
@@ -400,21 +472,23 @@ export const CadetRankHierarchyTree: React.FC = () => {
     // =========================================================================
 
     // CUO Matching (Optional rank)
-    const cuoMatch = platoonCadets.find((c) => isCUO(c.rank));
+    const cuoMatch = platoonCadets.find((c) => isCUO(c.rank) && !assignedIds.has(c.id));
+    if (cuoMatch) assignedIds.add(cuoMatch.id);
     const cuo: DisplayCadetNode | null = cuoMatch
       ? {
           ...cuoMatch,
-          rank: 'Cadet Under Officer/CUO',
+          rank: cuoMatch.rank || 'Cadet Under Officer (CUO)',
           role: 'Platoon Cadet Commander',
         }
       : null;
 
     // Cadet Seargent Matching (Platoon 2IC)
-    const sgtMatch = platoonCadets.find((c) => isSergeant(c.rank));
+    const sgtMatch = platoonCadets.find((c) => isSergeant(c.rank) && !assignedIds.has(c.id));
+    if (sgtMatch) assignedIds.add(sgtMatch.id);
     const sgt: DisplayCadetNode | null = sgtMatch
       ? {
           ...sgtMatch,
-          rank: 'Cadet Seargent',
+          rank: sgtMatch.rank || 'Cadet Seargent (SGT)',
           role: 'Platoon 2IC & Senior Drill Commander',
         }
       : null;
@@ -426,57 +500,96 @@ export const CadetRankHierarchyTree: React.FC = () => {
       { num: '03', title: 'Section 03' },
     ];
 
-    const unassignedCorporals = platoonCadets.filter((c) => isCorporal(c.rank));
-    const unassignedLCPLs = platoonCadets.filter((c) => isLanceCorporal(c.rank));
-    const unassignedCadets = platoonCadets.filter((c) => isCadet(c.rank));
-
-    const sections = sectionsConfig.map((sec, secIdx) => {
-      // 1. Cadet Corporal (Section Commander)
-      const cplCandidate =
+    // For each section, find matching Corporal or first unassigned Corporal
+    const sectionCpls = sectionsConfig.map((sec) => {
+      const matched =
         platoonCadets.find(
           (c) =>
             isCorporal(c.rank) &&
+            !assignedIds.has(c.id) &&
             (c.section === sec.title || (c.section && c.section.includes(sec.num)))
-        ) || unassignedCorporals[secIdx];
+        ) || platoonCadets.find((c) => isCorporal(c.rank) && !assignedIds.has(c.id));
 
-      const cpl: DisplayCadetNode | null = cplCandidate
+      if (matched) assignedIds.add(matched.id);
+      return matched
         ? {
-            ...cplCandidate,
-            rank: 'Cadet Corporal',
+            ...matched,
+            rank: matched.rank || 'Cadet Corporal (CPL)',
             role: `${sec.title} Commander`,
           }
         : null;
+    });
 
-      // 2. Cadet Lance Corporal (Section 2IC)
-      const lcplCandidate =
+    // For each section, find matching LCPL or first unassigned LCPL
+    const sectionLCPLs = sectionsConfig.map((sec) => {
+      const matched =
         platoonCadets.find(
           (c) =>
             isLanceCorporal(c.rank) &&
+            !assignedIds.has(c.id) &&
             (c.section === sec.title || (c.section && c.section.includes(sec.num)))
-        ) || unassignedLCPLs[secIdx];
+        ) || platoonCadets.find((c) => isLanceCorporal(c.rank) && !assignedIds.has(c.id));
 
-      const lcpl: DisplayCadetNode | null = lcplCandidate
+      if (matched) assignedIds.add(matched.id);
+      return matched
         ? {
-            ...lcplCandidate,
-            rank: 'Cadet Lance Corporal',
+            ...matched,
+            rank: matched.rank || 'Cadet Lance Corporal (LCPL)',
             role: `${sec.title} 2IC`,
           }
         : null;
+    });
 
-      // 3. 8 Cadets per section
-      const secCadets = platoonCadets.filter(
+    // Distribute Cadets
+    const sectionCadetBuckets: DisplayCadetNode[][] = sectionsConfig.map(() => []);
+
+    // 1st pass: cadets who specifically match section title or section number
+    sectionsConfig.forEach((sec, sIdx) => {
+      const matchedCadets = platoonCadets.filter(
         (c) =>
           isCadet(c.rank) &&
+          !assignedIds.has(c.id) &&
           (c.section === sec.title || (c.section && c.section.includes(sec.num)))
       );
+      for (const m of matchedCadets) {
+        assignedIds.add(m.id);
+        sectionCadetBuckets[sIdx].push({
+          ...m,
+          rank: m.rank || 'Cadet (CDT)',
+          role: `${sec.title} Cadet`,
+        });
+      }
+    });
 
-      // Up to 8 slots: return cadet if assigned, else null (blank slot)
-      const cadets: (DisplayCadetNode | null)[] = Array.from({ length: 8 }).map((_, cdtIdx) => {
-        const matched = secCadets[cdtIdx] || unassignedCadets[secIdx * 8 + cdtIdx];
-        if (matched) {
+    // 2nd pass: distribute ALL remaining unassigned cadets into sections
+    const remainingCadets = platoonCadets.filter((c) => !assignedIds.has(c.id));
+    for (const m of remainingCadets) {
+      assignedIds.add(m.id);
+      let minIdx = 0;
+      for (let i = 1; i < sectionCadetBuckets.length; i++) {
+        if (sectionCadetBuckets[i].length < sectionCadetBuckets[minIdx].length) {
+          minIdx = i;
+        }
+      }
+      sectionCadetBuckets[minIdx].push({
+        ...m,
+        rank: m.rank || 'Cadet (CDT)',
+        role: m.appointment || `${sectionsConfig[minIdx].title} Cadet`,
+      });
+    }
+
+    // Up to 8 slots per section (or more if section has more than 8 cadets)
+    const sections = sectionsConfig.map((sec, secIdx) => {
+      const cpl = sectionCpls[secIdx];
+      const lcpl = sectionLCPLs[secIdx];
+      const assignedList = sectionCadetBuckets[secIdx];
+
+      const slotCount = Math.max(8, assignedList.length);
+      const cadets: (DisplayCadetNode | null)[] = Array.from({ length: slotCount }).map((_, cdtIdx) => {
+        const item = assignedList[cdtIdx];
+        if (item) {
           return {
-            ...matched,
-            rank: 'Cadet',
+            ...item,
             role: `${sec.title} Rifleman ${cdtIdx + 1}`,
           };
         }
@@ -501,7 +614,27 @@ export const CadetRankHierarchyTree: React.FC = () => {
   }, [servingCadets, activeTab]);
 
   const totalServingInPlatoon = useMemo(() => {
-    return servingCadets.filter((c) => c.category === activeTab).length;
+    return servingCadets.filter((c) => {
+      const cat = (c.category || c.platoon || '').toLowerCase();
+      const sec = (c.section || '').toLowerCase();
+      if (activeTab === 'Male Platoon') {
+        return (
+          (!cat.includes('female') && (cat.includes('male') || c.gender === 'Male')) &&
+          !cat.includes('band') &&
+          !sec.includes('band')
+        );
+      }
+      if (activeTab === 'Female Platoon') {
+        return (
+          cat.includes('female') ||
+          (c.gender === 'Female' && !cat.includes('band') && !sec.includes('band'))
+        );
+      }
+      if (activeTab === 'Band Platoon') {
+        return cat.includes('band') || sec.includes('band');
+      }
+      return false;
+    }).length;
   }, [servingCadets, activeTab]);
 
   return (

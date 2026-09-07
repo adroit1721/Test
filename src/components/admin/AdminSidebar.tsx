@@ -45,7 +45,6 @@ const MENU_ITEMS: MenuItem[] = [
   { key: 'honor', label: 'Honor Board', icon: Award, desc: '3 categories tab view' },
   { key: 'contact', label: 'Contact & Inbox', icon: PhoneCall, desc: 'Contact info & inbox' },
   { key: 'recruitment', label: 'Cadet Recruitment', icon: UserPlus, desc: 'Join Us form & Excel export' },
-  { key: 'footer', label: 'Footer Config', icon: LayoutTemplate, desc: 'Social & campus links' },
 ];
 
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({

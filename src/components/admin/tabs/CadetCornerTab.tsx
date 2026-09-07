@@ -6,6 +6,7 @@ import { CloudinaryUploader } from '../../common/CloudinaryUploader';
 import { DatabaseAndCloudSettingsModal } from '../DatabaseAndCloudSettingsModal';
 import { isSupabaseConfigured } from '../../../utils/supabaseClient';
 import { isCloudinaryConfigured } from '../../../utils/cloudinary';
+import { downloadCadetsFile } from '../../../utils/cadetExport';
 import {
   Users,
   Plus,
@@ -33,6 +34,8 @@ import {
   RefreshCw,
   Award,
   UploadCloud,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 const PLATOON_QUOTAS = {
@@ -133,10 +136,6 @@ export const CadetCornerTab: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<'All' | PlatoonCategory>('All');
   const [sectionFilter, setSectionFilter] = useState<string>('All');
 
-  // Add / Edit Cadet Modal State
-  const [isAddingCadet, setIsAddingCadet] = useState(false);
-  const [editingCadet, setEditingCadet] = useState<CadetUserAccount | null>(null);
-
   // Password Modal
   const [passwordModalCadet, setPasswordModalCadet] = useState<CadetUserAccount | null>(null);
   const [newPasswordValue, setNewPasswordValue] = useState('');
@@ -148,35 +147,6 @@ export const CadetCornerTab: React.FC = () => {
   const [approvalSection, setApprovalSection] = useState<string>('Section 01');
   const [approvalRank, setApprovalRank] = useState('Cadet (CDT)');
   const [approvalCadetNo, setApprovalCadetNo] = useState('');
-
-  // Cadet Form Data
-  const [cadetForm, setCadetForm] = useState<Omit<CadetUserAccount, 'id'>>({
-    cadetNo: '',
-    password: '',
-    name: '',
-    category: 'Male Platoon',
-    section: 'Section 01',
-    rank: 'Cadet (CDT)',
-    gender: 'Male',
-    appointment: 'Cadet',
-    platoon: 'Male Platoon',
-    batch: 'Batch 24',
-    collegeId: '',
-    department: 'Dept. of Science',
-    bloodGroup: 'B+',
-    phone: '',
-    email: '',
-    joiningDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    attendancePercentage: 100,
-    paradesAttended: 24,
-    totalParades: 24,
-    campsAttended: [],
-    certificates: [],
-    status: 'Active',
-    cadetType: 'Current',
-    isApproved: true,
-    avatarUrl: '',
-  });
 
   // Form Builder Field State
   const [newFieldLabel, setNewFieldLabel] = useState('');
@@ -197,109 +167,18 @@ export const CadetCornerTab: React.FC = () => {
   const bandMaleCount = approvedCadets.filter((c) => c.category === 'Band Platoon' && c.gender === 'Male').length;
   const bandFemaleCount = approvedCadets.filter((c) => c.category === 'Band Platoon' && c.gender === 'Female').length;
 
-  const handleStartAddCadet = (defaultCat: PlatoonCategory = 'Male Platoon') => {
-    const isEx = defaultCat === 'Ex-cadets';
-    const initialSection = defaultCat === 'Band Platoon' ? 'Band Section 01' : isEx ? 'Ex-cadet Platoon' : 'Section 01';
-    const initialGender = defaultCat === 'Female Platoon' ? 'Female' : 'Male';
+  // Add / Edit Cadet State (Editing occurs directly on admin panel via unified CadetRegistrationForm)
+  const [editingCadet, setEditingCadet] = useState<CadetUserAccount | null>(null);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
-    setCadetForm({
-      cadetNo: `NGDC-${defaultCat === 'Male Platoon' ? 'M' : defaultCat === 'Female Platoon' ? 'F' : defaultCat === 'Band Platoon' ? 'B' : 'EX'}-${Math.floor(100 + Math.random() * 900)}`,
-      password: 'cadet' + Math.floor(100 + Math.random() * 900),
-      name: '',
-      category: defaultCat,
-      section: initialSection,
-      rank: 'Cadet (CDT)',
-      gender: initialGender,
-      appointment: 'Cadet Trainee',
-      platoon: defaultCat,
-      batch: 'Batch 24',
-      collegeId: '',
-      department: 'Dept. of Science & Humanities',
-      bloodGroup: 'B+',
-      phone: '+880 17...',
-      email: '',
-      joiningDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      attendancePercentage: 100,
-      paradesAttended: 24,
-      totalParades: 24,
-      campsAttended: [],
-      certificates: [],
-      status: isEx ? 'Alumni' : 'Active',
-      cadetType: isEx ? 'Ex-cadet' : 'Current',
-      isApproved: true,
-      avatarUrl: '',
-    });
+  const handleStartAddCadet = () => {
     setEditingCadet(null);
-    setIsAddingCadet(true);
+    setActiveSubtab('registerCadet');
   };
 
   const handleStartEditCadet = (cadet: CadetUserAccount) => {
     setEditingCadet(cadet);
-    setCadetForm({
-      cadetNo: cadet.cadetNo,
-      password: cadet.password,
-      name: cadet.name,
-      category: cadet.category || 'Male Platoon',
-      section: cadet.section || 'Section 01',
-      rank: cadet.rank,
-      gender: cadet.gender || 'Male',
-      appointment: cadet.appointment || 'Cadet',
-      platoon: cadet.platoon,
-      batch: cadet.batch,
-      collegeId: cadet.collegeId,
-      department: cadet.department,
-      bloodGroup: cadet.bloodGroup,
-      phone: cadet.phone,
-      email: cadet.email || '',
-      joiningDate: cadet.joiningDate,
-      attendancePercentage: cadet.attendancePercentage,
-      paradesAttended: cadet.paradesAttended,
-      totalParades: cadet.totalParades,
-      campsAttended: cadet.campsAttended,
-      certificates: cadet.certificates,
-      status: cadet.status,
-      cadetType: cadet.cadetType,
-      isApproved: cadet.isApproved,
-      avatarUrl: cadet.avatarUrl || '',
-    });
-    setIsAddingCadet(false);
-  };
-
-  const handleSaveCadet = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Check quota for new additions
-    if (!editingCadet && cadetForm.cadetType !== 'Ex-cadet' && cadetForm.category !== 'Ex-cadets') {
-      const quota = PLATOON_QUOTAS[cadetForm.category];
-      const currentServing = cadetForm.category === 'Male Platoon'
-        ? maleServingCount
-        : cadetForm.category === 'Female Platoon'
-        ? femaleServingCount
-        : bandServingCount;
-
-      if (currentServing >= quota) {
-        if (!confirm(`Warning: ${cadetForm.category} already has ${currentServing} serving cadets (quota is ${quota}). Do you still wish to add this cadet?`)) {
-          return;
-        }
-      }
-    }
-
-    if (editingCadet) {
-      updateCadetUser(editingCadet.id, {
-        ...cadetForm,
-        status: cadetForm.category === 'Ex-cadets' ? 'Alumni' : cadetForm.status,
-        cadetType: cadetForm.category === 'Ex-cadets' ? 'Ex-cadet' : cadetForm.cadetType,
-      });
-      setEditingCadet(null);
-    } else {
-      addCadetUser({
-        ...cadetForm,
-        status: cadetForm.category === 'Ex-cadets' ? 'Alumni' : 'Active',
-        cadetType: cadetForm.category === 'Ex-cadets' ? 'Ex-cadet' : 'Current',
-        isApproved: true,
-      });
-      setIsAddingCadet(false);
-    }
+    setActiveSubtab('registerCadet');
   };
 
   const handleSetPassword = (e: React.FormEvent) => {
@@ -313,7 +192,8 @@ export const CadetCornerTab: React.FC = () => {
 
   const handleStartApproveApplicant = (applicant: CadetUserAccount) => {
     setApprovingApplicant(applicant);
-    setApprovalPassword(`pass${Math.floor(1000 + Math.random() * 9000)}`);
+    // Keep the password the applicant defined during registration, admin can view or change it
+    setApprovalPassword(applicant.password || 'cadet123');
     setApprovalCategory(applicant.category || (applicant.gender === 'Female' ? 'Female Platoon' : 'Male Platoon'));
     setApprovalSection(applicant.section || 'Section 01');
     setApprovalRank(applicant.rank || 'Cadet (CDT)');
@@ -655,12 +535,95 @@ export const CadetCornerTab: React.FC = () => {
               </select>
 
               <button
-                onClick={() => setActiveSubtab('registerCadet')}
+                onClick={() => {
+                  setEditingCadet(null);
+                  setActiveSubtab('registerCadet');
+                }}
                 className="japandi-btn-primary text-xs py-2 px-3.5 font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>+ Add Cadet</span>
               </button>
+
+              {/* Export Cadet Data Dropdown */}
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                  className="japandi-btn-secondary text-xs py-2 px-3 font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
+                  title="Export Cadet Directory Data"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Export Data</span>
+                </button>
+
+                {isExportMenuOpen && (
+                  <div
+                    className="absolute right-0 top-full mt-1.5 w-72 bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3] dark:border-[#423e35] rounded-2xl shadow-xl p-2.5 z-30 space-y-2 text-xs"
+                    onMouseLeave={() => setIsExportMenuOpen(false)}
+                  >
+                    <div className="px-1 py-0.5 font-bold text-[11px] text-[#6b5e10] dark:text-[#eedc82] uppercase tracking-wider border-b border-[#cdc6b3]/50 dark:border-[#423e35] pb-1.5">
+                      Export Cadet Directory
+                    </div>
+
+                    <div className="p-2 bg-[#f6f3ed] dark:bg-[#141311] rounded-xl space-y-1.5">
+                      <div className="text-[11px] font-bold text-[#1c1c18] dark:text-[#fcfbf7]">
+                        Currently Serving Cadets ({maleServingCount + femaleServingCount + bandServingCount})
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            downloadCadetsFile(cadetUsers, 'serving', 'xlsx');
+                            setIsExportMenuOpen(false);
+                          }}
+                          className="flex-1 py-1.5 px-2 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-800 dark:text-emerald-300 font-bold rounded-lg transition-colors flex items-center justify-center gap-1 text-[11px] cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" /> Excel (.xlsx)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            downloadCadetsFile(cadetUsers, 'serving', 'csv');
+                            setIsExportMenuOpen(false);
+                          }}
+                          className="flex-1 py-1.5 px-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-[#1c1c18] dark:text-[#fcfbf7] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 text-[11px] cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" /> CSV (.csv)
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-2 bg-[#f6f3ed] dark:bg-[#141311] rounded-xl space-y-1.5">
+                      <div className="text-[11px] font-bold text-[#1c1c18] dark:text-[#fcfbf7]">
+                        Ex-Cadets Alumni ({exCadetCount})
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            downloadCadetsFile(cadetUsers, 'ex', 'xlsx');
+                            setIsExportMenuOpen(false);
+                          }}
+                          className="flex-1 py-1.5 px-2 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-800 dark:text-emerald-300 font-bold rounded-lg transition-colors flex items-center justify-center gap-1 text-[11px] cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" /> Excel (.xlsx)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            downloadCadetsFile(cadetUsers, 'ex', 'csv');
+                            setIsExportMenuOpen(false);
+                          }}
+                          className="flex-1 py-1.5 px-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-[#1c1c18] dark:text-[#fcfbf7] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 text-[11px] cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" /> CSV (.csv)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {approvedCadets.length > 0 && (
                 <button
@@ -1031,423 +994,37 @@ export const CadetCornerTab: React.FC = () => {
         </div>
       )}
 
-      {/* SUBTAB 3: DIRECT CADET REGISTRATION (CURRENTLY SERVING & EX-CADETS) */}
+      {/* SUBTAB 3: DIRECT CADET REGISTRATION & IN-PANEL EDITING */}
       {activeSubtab === 'registerCadet' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <button
-              onClick={() => setActiveSubtab('roster')}
+              onClick={() => {
+                setEditingCadet(null);
+                setActiveSubtab('roster');
+              }}
               className="text-xs font-semibold text-[#6b5e10] dark:text-[#eedc82] hover:underline cursor-pointer flex items-center gap-1"
             >
               ← Back to Platoon Roster
             </button>
+            {editingCadet && (
+              <span className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-3 py-1 rounded-full border border-amber-500/30">
+                Editing: {editingCadet.rank} {editingCadet.name} ({editingCadet.cadetNo})
+              </span>
+            )}
           </div>
           <CadetRegistrationForm
             isAdmin={true}
-            onSuccess={() => {}}
+            editingCadet={editingCadet}
+            onCancelEdit={() => {
+              setEditingCadet(null);
+              setActiveSubtab('roster');
+            }}
+            onSuccess={() => {
+              setEditingCadet(null);
+              setActiveSubtab('roster');
+            }}
           />
-        </div>
-      )}
-
-      {/* MODAL 1: ADD OR EDIT CADET */}
-      {(isAddingCadet || editingCadet) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3] dark:border-[#423e35] rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#cdc6b3]/60 dark:border-[#423e35] pb-3">
-              <h4 className="font-bold text-sm text-[#1c1c18] dark:text-[#fcfbf7] flex items-center gap-2">
-                <UserCog className="w-4 h-4 text-[#6b5e10] dark:text-[#eedc82]" />
-                <span>{editingCadet ? 'Edit Cadet Record' : 'Register New Cadet to Directory'}</span>
-              </h4>
-              <button
-                onClick={() => {
-                  setIsAddingCadet(false);
-                  setEditingCadet(null);
-                }}
-                className="text-[#7c7767] hover:text-[#1c1c18]"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveCadet} className="space-y-3 text-xs">
-              {/* Status / Enrollment Type: Serving Cadet vs Ex-cadet */}
-              <div className="bg-[#f6f3ed] dark:bg-[#141311] p-3 rounded-2xl border border-[#cdc6b3]/60 dark:border-[#423e35] space-y-2">
-                <label className="block font-bold text-[#1c1c18] dark:text-[#fcfbf7]">
-                  Cadet Classification / Type *
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCadetForm({
-                        ...cadetForm,
-                        cadetType: 'Current',
-                        category: cadetForm.category === 'Ex-cadets' ? 'Male Platoon' : cadetForm.category,
-                        status: 'Active',
-                        section: cadetForm.section === 'Ex-cadet Platoon' ? 'Section 01' : cadetForm.section,
-                      });
-                    }}
-                    className={`py-2 px-3 rounded-xl font-bold text-xs transition-all border cursor-pointer ${
-                      cadetForm.cadetType !== 'Ex-cadet'
-                        ? 'bg-[#eedc82] text-[#1c1c18] border-[#d5c470] shadow-xs'
-                        : 'bg-white dark:bg-[#1c1b17] text-[#695c4e] dark:text-[#aca596] border-[#cdc6b3]/50'
-                    }`}
-                  >
-                    Serving Cadet (Current)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCadetForm({
-                        ...cadetForm,
-                        cadetType: 'Ex-cadet',
-                        category: 'Ex-cadets',
-                        status: 'Alumni',
-                        section: 'Ex-cadet Platoon',
-                      });
-                    }}
-                    className={`py-2 px-3 rounded-xl font-bold text-xs transition-all border cursor-pointer ${
-                      cadetForm.cadetType === 'Ex-cadet'
-                        ? 'bg-[#eedc82] text-[#1c1c18] border-[#d5c470] shadow-xs'
-                        : 'bg-white dark:bg-[#1c1b17] text-[#695c4e] dark:text-[#aca596] border-[#cdc6b3]/50'
-                    }`}
-                  >
-                    Ex-cadet (Alumni)
-                  </button>
-                </div>
-              </div>
-
-              {/* Category & Section Selection */}
-              {cadetForm.cadetType !== 'Ex-cadet' ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                      Platoon (Serving Cadets Select Platoon) *
-                    </label>
-                    <select
-                      value={cadetForm.category}
-                      onChange={(e) => {
-                        const cat = e.target.value as PlatoonCategory;
-                        setCadetForm({
-                          ...cadetForm,
-                          category: cat,
-                          section: cat === 'Band Platoon' ? 'Band Section 01' : 'Section 01',
-                          gender: cat === 'Female Platoon' ? 'Female' : cat === 'Male Platoon' ? 'Male' : cadetForm.gender,
-                        });
-                      }}
-                      className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-bold"
-                    >
-                      <option value="Male Platoon">Male Platoon</option>
-                      <option value="Female Platoon">Female Platoon</option>
-                      <option value="Band Platoon">Band Platoon</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                      Section Assignment *
-                    </label>
-                    <select
-                      value={cadetForm.section}
-                      onChange={(e) => setCadetForm({ ...cadetForm, section: e.target.value as PlatoonSection })}
-                      className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-medium"
-                    >
-                      {cadetForm.category === 'Band Platoon' ? (
-                        <>
-                          <option value="Band HQ">Band HQ (Cadet Seargent / Corporals)</option>
-                          <option value="Band Section 01">Band Section 01 (LCPL & 3 Cadets)</option>
-                          <option value="Band Section 02">Band Section 02 (LCPL & 3 Cadets)</option>
-                          <option value="Band Section 03">Band Section 03 (LCPL & 3 Cadets)</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="Platoon HQ">Platoon HQ (CUO / Cadet Seargent)</option>
-                          <option value="Section 01">Section 01 (Corporal, Lance Corporal, Cadets)</option>
-                          <option value="Section 02">Section 02 (Corporal, Lance Corporal, Cadets)</option>
-                          <option value="Section 03">Section 03 (Corporal, Lance Corporal, Cadets)</option>
-                        </>
-                      )}
-                    </select>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-3 bg-[#f6f3ed] dark:bg-[#141311] rounded-2xl border border-dashed border-[#cdc6b3] dark:border-[#423e35] text-xs text-[#695c4e] dark:text-[#aca596] flex items-center justify-between">
-                  <span className="font-semibold text-[#1c1c18] dark:text-[#fcfbf7]">Ex-cadet Alumni</span>
-                  <span className="font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40 px-2.5 py-1 rounded-lg text-[11px]">
-                    No Platoon Selection Required
-                  </span>
-                </div>
-              )}
-
-              {/* Login Credentials: ID & Password */}
-              <div className="grid grid-cols-2 gap-3 p-3 bg-[#eedc82]/15 border border-[#cdc6b3]/50 rounded-2xl">
-                <div>
-                  <label className="block font-bold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                    Cadet No. (Login ID) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. NGDC-M-01 or Roll"
-                    value={cadetForm.cadetNo}
-                    onChange={(e) => setCadetForm({ ...cadetForm, cadetNo: e.target.value })}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-mono uppercase font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                    Login Password *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. cadet2024"
-                    value={cadetForm.password}
-                    onChange={(e) => setCadetForm({ ...cadetForm, password: e.target.value })}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Name & Gender */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Full Name"
-                    value={cadetForm.name}
-                    onChange={(e) => setCadetForm({ ...cadetForm, name: e.target.value })}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                    Gender *
-                  </label>
-                  <select
-                    value={cadetForm.gender}
-                    onChange={(e) => setCadetForm({ ...cadetForm, gender: e.target.value as any })}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-medium"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Rank & Appointment */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                    Rank *
-                  </label>
-                  <select
-                    value={cadetForm.rank}
-                    onChange={(e) => setCadetForm({ ...cadetForm, rank: e.target.value })}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-medium"
-                  >
-                    <option value="Cadet Under Officer/CUO">Cadet Under Officer/CUO</option>
-                    <option value="Cadet Seargent">Cadet Seargent</option>
-                    <option value="Cadet Corporal">Cadet Corporal</option>
-                    <option value="Cadet Lance Corporal">Cadet Lance Corporal</option>
-                    <option value="Cadet">Cadet</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                    Batch / Session
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Batch 24 (2024-25)"
-                    value={cadetForm.batch}
-                    onChange={(e) => setCadetForm({ ...cadetForm, batch: e.target.value })}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Department & Blood Group */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                    Department
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Dept. of Physics"
-                    value={cadetForm.department}
-                    onChange={(e) => setCadetForm({ ...cadetForm, department: e.target.value })}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                    Blood Group
-                  </label>
-                  <select
-                    value={cadetForm.bloodGroup}
-                    onChange={(e) => setCadetForm({ ...cadetForm, bloodGroup: e.target.value })}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
-                  >
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Contact Phone & College Roll */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                    Phone / Mobile
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="+880 17..."
-                    value={cadetForm.phone}
-                    onChange={(e) => setCadetForm({ ...cadetForm, phone: e.target.value })}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                    College Roll / ID
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 110492"
-                    value={cadetForm.collegeId}
-                    onChange={(e) => setCadetForm({ ...cadetForm, collegeId: e.target.value })}
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Cadet Photo / Avatar URL with Cloudinary Upload */}
-              <div>
-                <CloudinaryUploader
-                  label="Cadet Profile Photograph (Cloudinary Upload)"
-                  value={cadetForm.avatarUrl}
-                  currentImageUrl={cadetForm.avatarUrl}
-                  folder="cadets/avatars"
-                  onChange={(url) => setCadetForm({ ...cadetForm, avatarUrl: url })}
-                  onUploadComplete={(url) => setCadetForm({ ...cadetForm, avatarUrl: url })}
-                  helpText="Upload an official photograph. Displays in Cadet Directory, Profile, and Hierarchy Tree."
-                />
-              </div>
-
-              {/* Dynamic Custom Form Fields (configured by Admin in Form Builder) */}
-              {cadetRegFields.length > 0 && (
-                <div className="p-3.5 bg-[#f6f3ed] dark:bg-[#141311] rounded-2xl border border-[#cdc6b3]/50 dark:border-[#423e35] space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-[#1c1c18] dark:text-[#fcfbf7] flex items-center gap-1.5">
-                      <ListPlus className="w-3.5 h-3.5 text-[#6b5e10] dark:text-[#eedc82]" />
-                      Custom Form Fields (Admin Defined)
-                    </span>
-                    <span className="text-[10px] text-[#7c7767] dark:text-[#aca596]">
-                      {cadetRegFields.length} configured
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {cadetRegFields.map((field, fIdx) => (
-                      <div key={field.id ? `custom-fld-${field.id}-${fIdx}` : `custom-fld-${fIdx}`}>
-                        <label className="block text-[11px] font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-0.5">
-                          {field.label} {field.required && <span className="text-red-500">*</span>}
-                        </label>
-                        {field.type === 'select' ? (
-                          <select
-                            value={cadetForm.customFields?.[field.id] || ''}
-                            onChange={(e) =>
-                              setCadetForm({
-                                ...cadetForm,
-                                customFields: {
-                                  ...cadetForm.customFields,
-                                  [field.id]: e.target.value,
-                                },
-                              })
-                            }
-                            className="w-full bg-white dark:bg-[#252420] border border-[#cdc6b3] dark:border-[#423e35] px-2.5 py-1.5 rounded-xl text-xs outline-none"
-                          >
-                            <option value="">Select option...</option>
-                            {field.options?.map((opt, optIdx) => (
-                              <option key={`${field.id}-opt-${optIdx}-${opt}`} value={opt}>
-                                {opt}
-                              </option>
-                            ))}
-                          </select>
-                        ) : field.type === 'textarea' ? (
-                          <textarea
-                            rows={2}
-                            placeholder={field.placeholder || ''}
-                            value={cadetForm.customFields?.[field.id] || ''}
-                            onChange={(e) =>
-                              setCadetForm({
-                                ...cadetForm,
-                                customFields: {
-                                  ...cadetForm.customFields,
-                                  [field.id]: e.target.value,
-                                },
-                              })
-                            }
-                            className="w-full bg-white dark:bg-[#252420] border border-[#cdc6b3] dark:border-[#423e35] px-2.5 py-1.5 rounded-xl text-xs outline-none"
-                          />
-                        ) : (
-                          <input
-                            type={field.type || 'text'}
-                            placeholder={field.placeholder || ''}
-                            value={cadetForm.customFields?.[field.id] || ''}
-                            onChange={(e) =>
-                              setCadetForm({
-                                ...cadetForm,
-                                customFields: {
-                                  ...cadetForm.customFields,
-                                  [field.id]: e.target.value,
-                                },
-                              })
-                            }
-                            className="w-full bg-white dark:bg-[#252420] border border-[#cdc6b3] dark:border-[#423e35] px-2.5 py-1.5 rounded-xl text-xs outline-none"
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-3 flex justify-end gap-2 border-t border-[#cdc6b3]/50 dark:border-[#423e35]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAddingCadet(false);
-                    setEditingCadet(null);
-                  }}
-                  className="japandi-btn-secondary text-xs py-2 px-3"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="japandi-btn-primary text-xs py-2 px-4 font-bold"
-                >
-                  {editingCadet ? 'Update Cadet Record' : 'Save & Register Cadet'}
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
 
