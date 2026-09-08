@@ -33,15 +33,6 @@ import {
 } from '../data/bnccData';
 import { INITIAL_CADET_USERS } from '../data/initialCadetUsers';
 import {
-  fetchCadetsFromSupabase,
-  upsertCadetToSupabase,
-  deleteCadetFromSupabase,
-  isSupabaseConfigured,
-  fetchSiteSettings,
-  subscribeToSiteSettingsUpdates,
-  upsertSiteSetting,
-} from '../utils/supabaseClient';
-import {
   fetchCadetsFromAppwrite,
   upsertCadetToAppwrite,
   deleteCadetFromAppwrite,
@@ -856,8 +847,8 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         );
       } catch {}
     }
-    // Also persist tombstones into Supabase site_settings so tombstones survive across all client browsers and refreshes
-    upsertSiteSetting('ngdc_deleted_cadets_tombstones', Array.from(deletedCadetTombstones.current)).catch(() => {});
+    // Also persist tombstones so tombstones survive across all client browsers and refreshes
+    saveSettingWithTimestamp('ngdc_deleted_cadets_tombstones', Array.from(deletedCadetTombstones.current));
   };
 
   const mergeCadetLists = (local: CadetUserAccount[], remote: CadetUserAccount[]): CadetUserAccount[] => {
@@ -911,7 +902,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return Array.from(map.values());
   };
 
-  const saveSettingWithTimestamp = (key: string, value: any) => {
+  const saveSettingWithTimestamp = (key: string, value: any): boolean => {
     lastLocalWriteTimestamps.current[key] = Date.now();
     if (typeof window !== 'undefined') {
       try {
@@ -924,21 +915,26 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         console.warn('localStorage save failed:', e);
       }
     }
-    // Write to Appwrite Cloud if configured
-    if (isAppwriteConfigured()) {
+    // Write to Appwrite Cloud site_settings if configured (cadets have their own collection)
+    if (isAppwriteConfigured() && key !== 'ngdc_cadet_users_v8' && key !== 'ngdc_cadet_users') {
       upsertSiteSettingToAppwrite(key, value).catch((err) => {
         console.warn(`Appwrite setting sync error for ${key}:`, err);
       });
     }
-    return upsertSiteSetting(key, value);
+    return true;
+  };
+
+  const upsertSiteSetting = async (key: string, value: any): Promise<boolean> => {
+    saveSettingWithTimestamp(key, value);
+    return true;
   };
 
   // --- Admin PIN (Default: 1721) ---
   
-  // --- Site Settings Initialization (Appwrite Cloud & Supabase) ---
+  // --- Site Settings Initialization (Appwrite Cloud) ---
   useEffect(() => {
     async function loadSettings() {
-      // 1. Try Appwrite Cloud first
+      // 1. Fetch site settings from Appwrite Cloud if configured
       let settings: Record<string, any> | null = null;
       if (isAppwriteConfigured()) {
         try {
@@ -949,11 +945,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         } catch (err) {
           console.warn('Failed to load settings from Appwrite:', err);
         }
-      }
-
-      // 2. Fall back to Supabase
-      if (!settings) {
-        settings = await fetchSiteSettings();
       }
 
       if (settings) {
@@ -984,10 +975,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               deletedCadetTombstones.current.add(str.toUpperCase());
             }
           });
-        }
-        if (settings['ngdc_cadet_users_v8']) {
-          const remoteCadets = parseArray(settings['ngdc_cadet_users_v8']);
-          setCadetUsers((prev) => mergeCadetLists(prev, remoteCadets));
         }
         if (settings['ngdc_honor_entries_3cat']) setHonorEntries(parseArray(settings['ngdc_honor_entries_3cat']));
         if (settings['ngdc_contact_config']) setContactConfig(parseObject(settings['ngdc_contact_config'], DEFAULT_CONTACT_CONFIG));
@@ -1035,10 +1022,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }
         });
       }
-      else if (key === 'ngdc_cadet_users_v8') {
-        const remoteCadets = parseArray(val);
-        setCadetUsers((prev) => mergeCadetLists(prev, remoteCadets));
-      }
       else if (key === 'ngdc_honor_entries_3cat') setHonorEntries(parseArray(val));
       else if (key === 'ngdc_contact_config') setContactConfig(parseObject(val, DEFAULT_CONTACT_CONFIG));
       else if (key === 'ngdc_contact_messages') setContactMessages(parseArray(val));
@@ -1051,17 +1034,11 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       else if (key === 'ngdc_footer_config') setFooterConfig(parseObject(val, DEFAULT_FOOTER_CONFIG));
     };
 
-    // 1. Supabase Realtime subscription
-    const unsubscribeSupabase = subscribeToSiteSettingsUpdates((payload) => {
-      if (payload.new && payload.new.id) {
-        applySettingUpdate(payload.new.id, payload.new.value);
-      }
-    });
-
-    // 2. Appwrite Realtime subscription
+    // Appwrite Realtime subscription
     const unsubscribeAppwrite = subscribeToAppwriteUpdates((event) => {
       if (event.collection === 'site_settings' && event.payload) {
         const key = event.payload.key || event.payload.$id;
+        if (key === 'ngdc_cadet_users_v8' || key === 'ngdc_cadet_users') return;
         let val = event.payload.value;
         try {
           val = typeof val === 'string' ? JSON.parse(val) : val;
@@ -1069,19 +1046,68 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (key) applySettingUpdate(key, val);
       } else if (event.collection === 'cadets' && event.payload) {
         if (event.action === 'delete') {
-          const docId = event.payload.$id;
-          const cadetNo = event.payload.cadet_no;
-          deleteCadetUser(docId, cadetNo);
+          const docId = String(event.payload.$id || '').trim();
+          const cadetNo = String(event.payload.cadet_no || '').trim().toUpperCase();
+          setCadetUsers((prev) => {
+            const next = prev.filter((c) => {
+              if (!c) return false;
+              if (docId && String(c.id).trim() === docId) return false;
+              if (cadetNo && String(c.cadetNo || '').trim().toUpperCase() === cadetNo) return false;
+              return true;
+            });
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('ngdc_cadet_users_v8', JSON.stringify(next));
+                localStorage.setItem('ngdc_cadet_users', JSON.stringify(next));
+              } catch {}
+            }
+            return next;
+          });
         } else {
           const cadet = mapAppwriteDocumentToCadet(event.payload);
-          setCadetUsers((prev) => mergeCadetLists(prev, [cadet]));
+          if (cadet && cadet.cadetNo) {
+            setCadetUsers((prev) => {
+              const targetNo = cadet.cadetNo.trim().toUpperCase();
+              const idx = prev.findIndex((c) => c.id === cadet.id || (c.cadetNo && c.cadetNo.trim().toUpperCase() === targetNo));
+              let next: CadetUserAccount[];
+              if (idx >= 0) {
+                next = [...prev];
+                next[idx] = { ...prev[idx], ...cadet };
+              } else {
+                next = [cadet, ...prev];
+              }
+              if (typeof window !== 'undefined') {
+                try {
+                  localStorage.setItem('ngdc_cadet_users_v8', JSON.stringify(next));
+                  localStorage.setItem('ngdc_cadet_users', JSON.stringify(next));
+                } catch {}
+              }
+              return next;
+            });
+          }
         }
       }
     });
 
+    // Auto-resync when returning to tab, window focused, or coming online
+    const handleReSync = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        syncCadetsWithCloud();
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('visibilitychange', handleReSync);
+      window.addEventListener('focus', handleReSync);
+      window.addEventListener('online', handleReSync);
+    }
+
     return () => {
-      unsubscribeSupabase();
       unsubscribeAppwrite();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('visibilitychange', handleReSync);
+        window.removeEventListener('focus', handleReSync);
+        window.removeEventListener('online', handleReSync);
+      }
     };
   }, []);
 
@@ -1732,50 +1758,25 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_CADET_USERS; // Empty array [] by default - Admin inputs cadets
   });
 
-  // Cloud Database Live Sync for Cadets (Appwrite Cloud & Supabase)
+  // Cloud Database Live Sync for Cadets (Appwrite Cloud)
   const syncCadetsWithCloud = async () => {
-    // 1. Try Appwrite Cloud first if configured
     if (isAppwriteConfigured()) {
       try {
         const remote = await fetchCadetsFromAppwrite();
-        if (remote && Array.isArray(remote) && remote.length > 0) {
-          setCadetUsers((prev: CadetUserAccount[]) => {
-            const merged = mergeCadetLists(prev, remote);
-            if (typeof window !== 'undefined') {
-              try {
-                const str = JSON.stringify(merged);
-                localStorage.setItem('ngdc_cadet_users_v8', str);
-                localStorage.setItem('ngdc_cadet_users', str);
-              } catch {}
-            }
-            return merged;
-          });
+        if (remote && Array.isArray(remote)) {
+          const activeRemote = remote.filter((r) => r && !isCadetTombstoned(r.id, r.cadetNo));
+          setCadetUsers(activeRemote);
+          if (typeof window !== 'undefined') {
+            try {
+              const str = JSON.stringify(activeRemote);
+              localStorage.setItem('ngdc_cadet_users_v8', str);
+              localStorage.setItem('ngdc_cadet_users', str);
+            } catch {}
+          }
           return;
         }
       } catch (err) {
         console.warn('Error fetching cadets from Appwrite:', err);
-      }
-    }
-
-    // 2. Fall back to Supabase
-    if (isSupabaseConfigured()) {
-      try {
-        const remote = await fetchCadetsFromSupabase();
-        if (remote && Array.isArray(remote) && remote.length > 0) {
-          setCadetUsers((prev: CadetUserAccount[]) => {
-            const merged = mergeCadetLists(prev, remote);
-            if (typeof window !== 'undefined') {
-              try {
-                const str = JSON.stringify(merged);
-                localStorage.setItem('ngdc_cadet_users_v8', str);
-                localStorage.setItem('ngdc_cadet_users', str);
-              } catch {}
-            }
-            return merged;
-          });
-        }
-      } catch (err) {
-        console.warn('Error fetching cadets from Supabase:', err);
       }
     }
   };
@@ -1810,11 +1811,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         console.warn('Failed to upsert cadet to Appwrite:', err);
       });
     }
-
-    // Push to Supabase Postgres database if configured
-    upsertCadetToSupabase(newUser).catch((err) => {
-      console.warn('Failed to upsert cadet to Supabase:', err);
-    });
   };
 
   const updateCadetUser = (id: string, user: Partial<CadetUserAccount>) => {
@@ -1828,10 +1824,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               console.warn('Failed to update cadet in Appwrite:', err);
             });
           }
-          // Push to Supabase Postgres database if configured
-          upsertCadetToSupabase(merged).catch((err) => {
-            console.warn('Failed to update cadet in Supabase:', err);
-          });
           return merged;
         }
         return u;
@@ -1877,20 +1869,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     }
 
-    // 5. Asynchronously persist to remote site_settings
-    saveSettingWithTimestamp('ngdc_cadet_users_v8', remaining);
-
-    // 6. Delete from Appwrite Cloud cadets collection
+    // 5. Delete from Appwrite Cloud cadets collection
     if (isAppwriteConfigured()) {
       deleteCadetFromAppwrite(normalizedId, targetCadetNo).catch((err) => {
         console.warn('Failed to delete cadet from Appwrite collection:', err);
       });
     }
-
-    // 7. Delete from Supabase PostgreSQL cadets table (matching id or cadet_no)
-    deleteCadetFromSupabase(normalizedId, targetCadetNo).catch((err) => {
-      console.warn('Failed to delete cadet from Supabase table:', err);
-    });
   };
 
   const approveCadetApplicant = (
@@ -1931,9 +1915,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           console.warn('Failed to upsert approved cadet to Appwrite:', err);
         });
       }
-      upsertCadetToSupabase(approvedCadet).catch((err) => {
-        console.warn('Failed to upsert approved cadet to Supabase:', err);
-      });
     }
   };
 
@@ -2060,11 +2041,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         console.warn('Failed to upsert cadet to Appwrite:', err);
       });
     }
-
-    // Upsert to Supabase if configured
-    upsertCadetToSupabase(newCadet).catch((err) => {
-      console.warn('Failed to upsert cadet to Supabase:', err);
-    });
 
     const isPending = !isApproved || initialStatus === 'Pending Approval';
     return {
@@ -2380,141 +2356,176 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     isOpen: isRecruitmentOpen,
   }), [recruitmentNoticeTitle, recruitmentAnnouncement?.batch, isRecruitmentOpen]);
 
+  const contextValue = useMemo<AdminDataContextType>(
+    () => ({
+      servicePin,
+      changeServicePin,
+      isAdminLoggedIn,
+      loginAdmin,
+      logoutAdmin,
+
+      heroSlides,
+      addHeroSlide,
+      updateHeroSlide,
+      deleteHeroSlide,
+      principalMessage,
+      updatePrincipalMessage,
+      resetPrincipalMessage,
+      vicePrincipalMessage,
+      updateVicePrincipalMessage,
+      resetVicePrincipalMessage,
+
+      aboutOverview,
+      updateAboutOverview,
+      resetAboutOverview,
+      bncco1Message,
+      updateBncco1Message,
+      resetBncco1Message,
+      bncco2Message,
+      updateBncco2Message,
+      resetBncco2Message,
+      platoonCommanderMessage,
+      updatePlatoonCommanderMessage,
+      resetPlatoonCommanderMessage,
+      aboutSections,
+      addAboutSection,
+      updateAboutSection,
+      deleteAboutSection,
+      cadetRanks,
+      addCadetRank,
+      updateCadetRank,
+      deleteCadetRank,
+
+      trainingAnnouncements,
+      addTrainingAnnouncement,
+      updateTrainingAnnouncement,
+      deleteTrainingAnnouncement,
+      trainingFormFields,
+      setTrainingFormFields,
+      trainingSubmissions,
+      addTrainingSubmission,
+
+      notices,
+      addNotice,
+      updateNotice,
+      deleteNotice,
+      blogs,
+      addBlog,
+      updateBlog,
+      deleteBlog,
+
+      memories,
+      addMemory,
+      updateMemory,
+      deleteMemory,
+
+      cadetRegFields,
+      setCadetRegFields,
+      cadetUsers,
+      addCadetUser,
+      updateCadetUser,
+      deleteCadetUser,
+      approveCadetApplicant,
+      clearAllCadetUsers,
+      activeCadetAuth,
+      cadetLogin,
+      cadetRegister,
+      cadetLogout,
+
+      honorEntries,
+      addHonorEntry,
+      updateHonorEntry,
+      deleteHonorEntry,
+
+      contactConfig,
+      updateContactConfig,
+      contactMessages,
+      addContactMessage,
+      markContactMessageRead,
+      deleteContactMessage,
+
+      isRecruitmentOpen,
+      setIsRecruitmentOpen,
+      recruitmentNoticeTitle,
+      setRecruitmentNoticeTitle,
+      recruitmentAnnouncement,
+      updateRecruitmentAnnouncement,
+      recruitmentConfig: memoizedRecruitmentConfig,
+      recruitmentFormFields,
+      setRecruitmentFormFields,
+      recruitmentFields: recruitmentFormFields,
+      setRecruitmentFields: setRecruitmentFormFields,
+      recruitmentApplicants,
+      applicants: recruitmentApplicants,
+      addRecruitmentApplicant,
+      addApplicant: (applicant: any) => addRecruitmentApplicant(applicant),
+      updateApplicantStatus,
+      updateRecruitmentApplicant,
+      deleteRecruitmentApplicant,
+      deleteApplicant: (id: string) => deleteRecruitmentApplicant(id),
+      exportApplicantsToExcel,
+      recruitmentSignatories,
+      updateRecruitmentSignatories,
+      resetRecruitmentSignatories,
+
+      syncCadetsWithSupabase,
+      syncCadetsWithCloud,
+      isSupabaseActive: false,
+      isAppwriteActive: isAppwriteConfigured(),
+
+      cadetAccounts: cadetUsers,
+      addCadetAccount: (account: any) => addCadetUser(account),
+      cadetCornerModules: DEFAULT_CADET_CORNER_MODULES,
+
+      rankHierarchy: cadetRanks,
+
+      customFormTitle: "Platoon Training & Event Enrollment",
+      customFormDescription: "Please provide your cadet details to register for the designated event or parade session.",
+      customFormFields: trainingFormFields,
+      addCustomSubmission: (sub: any) => addTrainingSubmission(sub),
+
+      footerConfig,
+      updateFooterConfig,
+
+      resetAllToDefault,
+    }),
+    [
+      servicePin,
+      isAdminLoggedIn,
+      heroSlides,
+      principalMessage,
+      vicePrincipalMessage,
+      aboutOverview,
+      bncco1Message,
+      bncco2Message,
+      platoonCommanderMessage,
+      aboutSections,
+      cadetRanks,
+      trainingAnnouncements,
+      trainingFormFields,
+      trainingSubmissions,
+      notices,
+      blogs,
+      memories,
+      cadetRegFields,
+      cadetUsers,
+      activeCadetAuth,
+      honorEntries,
+      contactConfig,
+      contactMessages,
+      isRecruitmentOpen,
+      recruitmentNoticeTitle,
+      recruitmentAnnouncement,
+      memoizedRecruitmentConfig,
+      recruitmentFormFields,
+      recruitmentApplicants,
+      recruitmentSignatories,
+      footerConfig,
+    ]
+  );
+
   return (
-    <AdminDataContext.Provider
-      value={{
-        servicePin,
-        changeServicePin,
-        isAdminLoggedIn,
-        loginAdmin,
-        logoutAdmin,
-
-        heroSlides,
-        addHeroSlide,
-        updateHeroSlide,
-        deleteHeroSlide,
-        principalMessage,
-        updatePrincipalMessage,
-        resetPrincipalMessage,
-        vicePrincipalMessage,
-        updateVicePrincipalMessage,
-        resetVicePrincipalMessage,
-
-        aboutOverview,
-        updateAboutOverview,
-        resetAboutOverview,
-        bncco1Message,
-        updateBncco1Message,
-        resetBncco1Message,
-        bncco2Message,
-        updateBncco2Message,
-        resetBncco2Message,
-        platoonCommanderMessage,
-        updatePlatoonCommanderMessage,
-        resetPlatoonCommanderMessage,
-        aboutSections,
-        addAboutSection,
-        updateAboutSection,
-        deleteAboutSection,
-        cadetRanks,
-        addCadetRank,
-        updateCadetRank,
-        deleteCadetRank,
-
-        trainingAnnouncements,
-        addTrainingAnnouncement,
-        updateTrainingAnnouncement,
-        deleteTrainingAnnouncement,
-        trainingFormFields,
-        setTrainingFormFields,
-        trainingSubmissions,
-        addTrainingSubmission,
-
-        notices,
-        addNotice,
-        updateNotice,
-        deleteNotice,
-        blogs,
-        addBlog,
-        updateBlog,
-        deleteBlog,
-
-        memories,
-        addMemory,
-        updateMemory,
-        deleteMemory,
-
-        cadetRegFields,
-        setCadetRegFields,
-        cadetUsers,
-        addCadetUser,
-        updateCadetUser,
-        deleteCadetUser,
-        approveCadetApplicant,
-        clearAllCadetUsers,
-        activeCadetAuth,
-        cadetLogin,
-        cadetRegister,
-        cadetLogout,
-
-        honorEntries,
-        addHonorEntry,
-        updateHonorEntry,
-        deleteHonorEntry,
-
-        contactConfig,
-        updateContactConfig,
-        contactMessages,
-        addContactMessage,
-        markContactMessageRead,
-        deleteContactMessage,
-
-        isRecruitmentOpen,
-        setIsRecruitmentOpen,
-        recruitmentNoticeTitle,
-        setRecruitmentNoticeTitle,
-        recruitmentAnnouncement,
-        updateRecruitmentAnnouncement,
-        recruitmentConfig: memoizedRecruitmentConfig,
-        recruitmentFormFields,
-        setRecruitmentFormFields,
-        recruitmentFields: recruitmentFormFields,
-        setRecruitmentFields: setRecruitmentFormFields,
-        recruitmentApplicants,
-        applicants: recruitmentApplicants,
-        addRecruitmentApplicant,
-        addApplicant: (applicant: any) => addRecruitmentApplicant(applicant),
-        updateApplicantStatus,
-        updateRecruitmentApplicant,
-        deleteRecruitmentApplicant,
-        deleteApplicant: (id: string) => deleteRecruitmentApplicant(id),
-        exportApplicantsToExcel,
-        recruitmentSignatories,
-        updateRecruitmentSignatories,
-        resetRecruitmentSignatories,
-
-        syncCadetsWithSupabase,
-        syncCadetsWithCloud,
-        isSupabaseActive: isSupabaseConfigured(),
-        isAppwriteActive: isAppwriteConfigured(),
-
-        cadetAccounts: cadetUsers,
-        addCadetAccount: (account: any) => addCadetUser(account),
-        cadetCornerModules: DEFAULT_CADET_CORNER_MODULES,
-
-        rankHierarchy: cadetRanks,
-
-        customFormTitle: "Platoon Training & Event Enrollment",
-        customFormDescription: "Please provide your cadet details to register for the designated event or parade session.",
-        customFormFields: trainingFormFields,
-        addCustomSubmission: (sub: any) => addTrainingSubmission(sub),
-
-        footerConfig,
-        updateFooterConfig,
-
-        resetAllToDefault,
-      }}
-    >
+    <AdminDataContext.Provider value={contextValue}>
       {children}
     </AdminDataContext.Provider>
   );

@@ -4,7 +4,6 @@ import { CadetUserAccount, FormFieldConfig, PlatoonCategory, PlatoonSection, Cad
 import { CadetRegistrationForm } from '../../CadetRegistrationForm';
 import { CloudinaryUploader } from '../../common/CloudinaryUploader';
 import { DatabaseAndCloudSettingsModal } from '../DatabaseAndCloudSettingsModal';
-import { isSupabaseConfigured } from '../../../utils/supabaseClient';
 import { isAppwriteConfigured } from '../../../utils/appwriteClient';
 import { isCloudinaryConfigured } from '../../../utils/cloudinary';
 import { downloadCadetsFile } from '../../../utils/cadetExport';
@@ -294,10 +293,10 @@ export const CadetCornerTab: React.FC = () => {
               >
                 <Database className="w-3.5 h-3.5 text-[#6b5e10] dark:text-[#eedc82]" />
                 <span>DB & Cloud Storage Settings</span>
-                {(isAppwriteConfigured() || isSupabaseConfigured()) && (
+                {isAppwriteConfigured() && (
                   <span
                     className="w-2 h-2 rounded-full bg-emerald-500 inline-block"
-                    title={isAppwriteConfigured() ? 'Appwrite Cloud Connected' : 'Supabase Postgres Connected'}
+                    title="Appwrite Cloud Database Connected"
                   ></span>
                 )}
               </button>
@@ -310,7 +309,7 @@ export const CadetCornerTab: React.FC = () => {
                 }}
                 disabled={isSyncing}
                 className="japandi-btn-secondary text-[11px] py-1.5 px-3 flex items-center gap-1.5 cursor-pointer font-medium"
-                title="Synchronize Cadets with Appwrite Cloud & Supabase"
+                title="Synchronize Cadets with Appwrite Cloud"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-[#6b5e10]' : ''}`} />
                 <span>{isSyncing ? 'Syncing...' : isAppwriteConfigured() ? 'Sync Appwrite' : 'Sync Cloud'}</span>

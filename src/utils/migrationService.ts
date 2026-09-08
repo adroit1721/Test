@@ -1,4 +1,3 @@
-import { fetchCadetsFromSupabase, fetchSiteSettings, isSupabaseConfigured } from './supabaseClient';
 import {
   fetchCadetsFromAppwrite,
   fetchSiteSettingsFromAppwrite,
@@ -60,56 +59,12 @@ export async function testAppwriteSetup(): Promise<{
     settingsColFound = true;
   } catch (err: any) {
     if (err?.code === 404) {
-      if (err?.type === 'database_not_found') {
-        return {
-          connected: true,
-          databaseFound: false,
-          settingsColFound: false,
-          cadetsColFound: false,
-          error: `Database "${config.databaseId}" not found in your Appwrite Project. Please create database ID: ${config.databaseId}`,
-        };
-      }
-      if (err?.type === 'collection_not_found') {
-        databaseFound = true;
-        settingsColFound = false;
-      }
-    } else {
-      const msg = String(err?.message || '');
-      const isFetchFailed = msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network');
-      
-      // Try testing via server route to see if database exists without browser CORS limits
-      try {
-        const serverCheck = await fetch('/api/appwrite/test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            endpoint: config.endpoint,
-            projectId: config.projectId,
-            databaseId: config.databaseId,
-          }),
-        });
-        const sData = await serverCheck.json().catch(() => ({}));
-        if (sData?.ok) {
-          return {
-            connected: true,
-            databaseFound: true,
-            settingsColFound: false,
-            cadetsColFound: false,
-            error: 'Appwrite database reached via server, but browser access is blocked by CORS. In Appwrite Console -> Overview -> Platforms -> Add Web App -> Set Hostname to "*".',
-          };
-        }
-      } catch {}
-
-      const friendlyError = isFetchFailed
-        ? 'Failed to fetch (CORS). In your Appwrite Cloud Console -> Overview -> Platforms -> click "Add Platform" -> "Web App" -> set Hostname to "*".'
-        : err?.message || 'Failed to connect to Appwrite Endpoint.';
-
       return {
-        connected: false,
+        connected: true,
         databaseFound: false,
         settingsColFound: false,
         cadetsColFound: false,
-        error: friendlyError,
+        error: `Database "${config.databaseId}" or Collection "${config.settingsCollectionId}" not found.`,
       };
     }
   }
@@ -117,10 +72,17 @@ export async function testAppwriteSetup(): Promise<{
   // 2. Check cadets collection
   try {
     await db.listDocuments(config.databaseId, config.cadetsCollectionId, []);
+    databaseFound = true;
     cadetsColFound = true;
   } catch (err: any) {
-    if (err?.type === 'collection_not_found') {
-      cadetsColFound = false;
+    if (err?.code === 404) {
+      return {
+        connected: true,
+        databaseFound: true,
+        settingsColFound: true,
+        cadetsColFound: false,
+        error: `Cadets collection "${config.cadetsCollectionId}" not found.`,
+      };
     }
   }
 
@@ -133,89 +95,81 @@ export async function testAppwriteSetup(): Promise<{
 }
 
 /**
- * Executes a full migration from Supabase/LocalStorage to Appwrite Cloud
+ * Sync / Backup local data to Appwrite Cloud
  */
-export async function executeSupabaseToAppwriteMigration(
-  onProgress?: (progress: MigrationProgress) => void
+export async function syncLocalToAppwrite(
+  onProgress: (progress: MigrationProgress) => void
 ): Promise<boolean> {
-  const update = (p: Partial<MigrationProgress>) => {
-    if (onProgress) {
-      onProgress({
-        stage: 'checking',
-        message: '',
-        settingsTotal: 0,
-        settingsProcessed: 0,
-        cadetsTotal: 0,
-        cadetsProcessed: 0,
-        ...p,
-      });
-    }
+  const update = (partial: Partial<MigrationProgress>) => {
+    onProgress({
+      stage: 'idle',
+      message: '',
+      settingsTotal: 0,
+      settingsProcessed: 0,
+      cadetsTotal: 0,
+      cadetsProcessed: 0,
+      ...partial,
+    });
   };
 
   try {
-    update({ stage: 'checking', message: 'Verifying Appwrite setup and connection...' });
+    update({ stage: 'checking', message: 'Testing Appwrite Cloud connectivity...' });
     const check = await testAppwriteSetup();
     if (!check.connected || !check.databaseFound) {
-      update({
-        stage: 'error',
-        message: check.error || 'Cannot proceed: Appwrite database is not ready.',
-        errorDetails: check.error,
-      });
-      return false;
+      throw new Error(check.error || 'Appwrite Cloud database or collections not accessible.');
     }
 
-    if (!check.settingsColFound && !check.cadetsColFound) {
-      update({
-        stage: 'error',
-        message: 'Collections "site_settings" and "cadets" not found. Please create them in Appwrite Console first.',
-        errorDetails: 'Missing collections in Appwrite Database',
-      });
-      return false;
+    // 1. Read local storage settings
+    update({ stage: 'migrating_settings', message: 'Reading local site settings...' });
+    const localSettings: Record<string, any> = {};
+    if (typeof window !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('ngdc_') && !key.includes('cadet_users')) {
+          const val = localStorage.getItem(key);
+          if (val) {
+            try {
+              localSettings[key] = JSON.parse(val);
+            } catch {
+              localSettings[key] = val;
+            }
+          }
+        }
+      }
     }
 
-    // 1. Fetch source settings from Supabase (or cached local state)
-    update({ stage: 'migrating_settings', message: 'Reading site settings from Supabase & local storage...' });
-    const sourceSettings = (await fetchSiteSettings()) || {};
-    const settingKeys = Object.keys(sourceSettings);
-    const settingsTotal = settingKeys.length;
-
+    const settingsEntries = Object.entries(localSettings);
+    const settingsTotal = settingsEntries.length;
     let settingsProcessed = 0;
+
     if (check.settingsColFound && settingsTotal > 0) {
       update({
         stage: 'migrating_settings',
-        message: `Migrating ${settingsTotal} site settings to Appwrite Cloud...`,
+        message: `Syncing ${settingsTotal} settings to Appwrite Cloud...`,
         settingsTotal,
         settingsProcessed: 0,
       });
 
-      for (const key of settingKeys) {
+      for (const [key, value] of settingsEntries) {
         try {
-          await upsertSiteSettingToAppwrite(key, sourceSettings[key]);
+          await upsertSiteSettingToAppwrite(key, value);
         } catch (e) {
-          console.warn(`Failed to migrate setting "${key}":`, e);
+          console.warn(`Failed to sync setting "${key}":`, e);
         }
         settingsProcessed++;
         update({
           stage: 'migrating_settings',
-          message: `Migrated ${settingsProcessed}/${settingsTotal} settings...`,
+          message: `Synced ${settingsProcessed}/${settingsTotal} settings...`,
           settingsTotal,
           settingsProcessed,
         });
       }
     }
 
-    // 2. Fetch source cadets
-    update({ stage: 'migrating_cadets', message: 'Reading cadets from Supabase & local storage...' });
+    // 2. Read local cadets
+    update({ stage: 'migrating_cadets', message: 'Reading local cadets...' });
     let cadets: CadetUserAccount[] = [];
-    if (isSupabaseConfigured()) {
-      const sbCadets = await fetchCadetsFromSupabase();
-      if (sbCadets && sbCadets.length > 0) {
-        cadets = sbCadets;
-      }
-    }
-
-    // Fallback to local storage if supabase returned empty
-    if (cadets.length === 0 && typeof window !== 'undefined') {
+    if (typeof window !== 'undefined') {
       try {
         const local = localStorage.getItem('ngdc_cadet_users_v8') || localStorage.getItem('ngdc_cadet_users');
         if (local) cadets = JSON.parse(local);
@@ -228,7 +182,7 @@ export async function executeSupabaseToAppwriteMigration(
     if (check.cadetsColFound && cadetsTotal > 0) {
       update({
         stage: 'migrating_cadets',
-        message: `Migrating ${cadetsTotal} cadet records to Appwrite Cloud...`,
+        message: `Syncing ${cadetsTotal} cadet records to Appwrite Cloud...`,
         settingsTotal,
         settingsProcessed,
         cadetsTotal,
@@ -239,12 +193,12 @@ export async function executeSupabaseToAppwriteMigration(
         try {
           await upsertCadetToAppwrite(cadet);
         } catch (e) {
-          console.warn(`Failed to migrate cadet "${cadet.cadetNo}":`, e);
+          console.warn(`Failed to sync cadet "${cadet.cadetNo}":`, e);
         }
         cadetsProcessed++;
         update({
           stage: 'migrating_cadets',
-          message: `Migrated ${cadetsProcessed}/${cadetsTotal} cadets...`,
+          message: `Synced ${cadetsProcessed}/${cadetsTotal} cadets...`,
           settingsTotal,
           settingsProcessed,
           cadetsTotal,
@@ -256,7 +210,7 @@ export async function executeSupabaseToAppwriteMigration(
     // 3. Verification
     update({
       stage: 'verifying',
-      message: 'Verifying migrated documents in Appwrite Cloud...',
+      message: 'Verifying data in Appwrite Cloud...',
       settingsTotal,
       settingsProcessed,
       cadetsTotal,
@@ -271,7 +225,7 @@ export async function executeSupabaseToAppwriteMigration(
 
     update({
       stage: 'completed',
-      message: `Migration complete! Appwrite now hosts ${verifiedSettingsCount} site settings and ${verifiedCadetsCount} cadet profiles.`,
+      message: `Complete! Appwrite now hosts ${verifiedSettingsCount} site settings and ${verifiedCadetsCount} cadet profiles.`,
       settingsTotal,
       settingsProcessed,
       cadetsTotal,
@@ -282,9 +236,12 @@ export async function executeSupabaseToAppwriteMigration(
   } catch (err: any) {
     update({
       stage: 'error',
-      message: `Migration failed: ${err?.message || err}`,
+      message: `Sync failed: ${err?.message || err}`,
       errorDetails: err?.message || String(err),
     });
     return false;
   }
 }
+
+// Alias for backwards compatibility
+export const runMigration = syncLocalToAppwrite;

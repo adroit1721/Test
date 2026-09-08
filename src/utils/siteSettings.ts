@@ -1,12 +1,11 @@
 // src/utils/siteSettings.ts
-import { getSupabaseClient } from './supabaseClient';
 import {
   isAppwriteConfigured,
   fetchSiteSettingsFromAppwrite,
   upsertSiteSettingToAppwrite,
 } from './appwriteClient';
 
-/** Fetch all site settings */
+/** Fetch all site settings from Appwrite Cloud (with localStorage fallback) */
 export async function loadAllSettings(): Promise<Record<string, any>> {
   // 1. Try Appwrite Cloud first if configured
   if (isAppwriteConfigured()) {
@@ -20,24 +19,7 @@ export async function loadAllSettings(): Promise<Record<string, any>> {
     }
   }
 
-  // 2. Try Supabase
-  const client = getSupabaseClient();
-  if (client) {
-    try {
-      const { data, error } = await client.from('site_settings').select('*');
-      if (!error && Array.isArray(data)) {
-        const result: Record<string, any> = {};
-        data.forEach((row: any) => {
-          result[row.id] = row.value;
-        });
-        return result;
-      }
-    } catch (err) {
-      console.warn('Supabase loadAllSettings error:', err);
-    }
-  }
-
-  // 3. Fallback to localStorage
+  // 2. Fallback to localStorage
   const localMap: Record<string, any> = {};
   if (typeof window !== 'undefined') {
     try {
@@ -59,7 +41,7 @@ export async function loadAllSettings(): Promise<Record<string, any>> {
   return localMap;
 }
 
-/** Upsert a single setting across available storage providers */
+/** Upsert a single setting to localStorage and Appwrite Cloud */
 export async function upsertSetting(key: string, value: any): Promise<void> {
   // 1. Immediate localStorage synchronous write
   if (typeof window !== 'undefined') {
@@ -68,21 +50,11 @@ export async function upsertSetting(key: string, value: any): Promise<void> {
     } catch {}
   }
 
-  // 2. Write to Appwrite Cloud if configured
-  if (isAppwriteConfigured()) {
+  // 2. Write to Appwrite Cloud if configured (except large monolithic cadet array, which lives in cadets collection)
+  if (isAppwriteConfigured() && key !== 'ngdc_cadet_users_v8' && key !== 'ngdc_cadet_users') {
     upsertSiteSettingToAppwrite(key, value).catch((err) => {
       console.warn(`Failed to sync setting "${key}" to Appwrite:`, err);
     });
-  }
-
-  // 3. Dual-write to Supabase if still active
-  const client = getSupabaseClient();
-  if (client) {
-    try {
-      const stringified = typeof value === 'string' ? value : JSON.stringify(value);
-      const record = { id: key, value: stringified };
-      await client.from('site_settings').upsert([record], { onConflict: 'id' });
-    } catch {}
   }
 }
 
@@ -96,18 +68,7 @@ export async function getSiteSetting(key: string): Promise<any> {
     } catch {}
   }
 
-  // 2. Try Supabase
-  const client = getSupabaseClient();
-  if (client) {
-    try {
-      const { data, error } = await client.from('site_settings').select('value').eq('id', key).single();
-      if (!error && data?.value !== undefined) {
-        return data.value;
-      }
-    } catch {}
-  }
-
-  // 3. Fallback to localStorage
+  // 2. Fallback to localStorage
   if (typeof window !== 'undefined') {
     try {
       const item = localStorage.getItem(key);
