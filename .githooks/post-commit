@@ -1,0 +1,16 @@
+#!/bin/sh
+# Automatically push changes to GitHub whenever a commit is made locally
+
+CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")
+
+echo "========================================================"
+echo "🚀 [Git Hook] Auto-pushing commit to origin/${CURRENT_BRANCH}..."
+echo "========================================================"
+
+git push origin "${CURRENT_BRANCH}"
+
+if [ $? -eq 0 ]; then
+  echo "✅ Successfully pushed changes to GitHub (${CURRENT_BRANCH})"
+else
+  echo "⚠️ Automatic push failed. Please check your network or credentials."
+fi
