@@ -272,7 +272,7 @@ export async function upsertCadetToAppwrite(cadet: CadetUserAccount): Promise<bo
 /**
  * Delete cadet from Appwrite Cloud
  */
-export async function deleteCadetFromAppwrite(id: string, cadetNo?: string): Promise<boolean> {
+export async function deleteCadetFromAppwrite(id: string, _cadetNo?: string): Promise<boolean> {
   const db = getAppwriteDatabases();
   if (!db) return false;
   const config = getAppwriteConfig();
@@ -286,21 +286,6 @@ export async function deleteCadetFromAppwrite(id: string, cadetNo?: string): Pro
   } catch (err: any) {
     // If deleted already or not found, proceed
     if (err?.code === 404) success = true;
-  }
-
-  // If cadetNo is provided, query and delete any duplicate records
-  if (cadetNo) {
-    try {
-      const existing = await db.listDocuments(config.databaseId, config.cadetsCollectionId, [
-        Query.equal('cadet_no', cadetNo.trim().toUpperCase()),
-      ]);
-      for (const doc of existing.documents) {
-        if (doc.$id !== docId) {
-          await db.deleteDocument(config.databaseId, config.cadetsCollectionId, doc.$id).catch(() => {});
-        }
-      }
-      success = true;
-    } catch {}
   }
 
   return success;

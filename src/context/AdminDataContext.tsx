@@ -805,7 +805,8 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if (Array.isArray(arr)) {
             arr.forEach((x) => {
               const str = String(x || '').trim();
-              if (str) {
+              // Only keep valid document IDs (e.g. usr-...) as tombstones, never plain numbers or words
+              if (str && str.startsWith('usr-')) {
                 s.add(str);
                 s.add(str.toUpperCase());
               }
@@ -817,33 +818,22 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return s;
   })());
 
-  const isCadetTombstoned = (id?: string, cadetNo?: string): boolean => {
+  const isCadetTombstoned = (id?: string, _cadetNo?: string): boolean => {
     const cleanId = String(id || '').trim();
-    const cleanNo = String(cadetNo || '').trim().toUpperCase();
     if (cleanId && cleanId.length > 2) {
       if (deletedCadetTombstones.current.has(cleanId) || deletedCadetTombstones.current.has(cleanId.toUpperCase())) {
-        return true;
-      }
-    }
-    if (cleanNo && cleanNo.length > 2) {
-      if (deletedCadetTombstones.current.has(cleanNo)) {
         return true;
       }
     }
     return false;
   };
 
-  const addCadetTombstone = (id: string, cadetNo?: string) => {
+  const addCadetTombstone = (id: string, _cadetNo?: string) => {
     const cleanId = String(id || '').trim();
-    const cleanNo = String(cadetNo || '').trim().toUpperCase();
     let changed = false;
     if (cleanId && cleanId.length > 2) {
       deletedCadetTombstones.current.add(cleanId);
       deletedCadetTombstones.current.add(cleanId.toUpperCase());
-      changed = true;
-    }
-    if (cleanNo && cleanNo.length > 2) {
-      deletedCadetTombstones.current.add(cleanNo);
       changed = true;
     }
     if (changed && typeof window !== 'undefined') {
@@ -859,16 +849,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const removeCadetTombstone = (id?: string, cadetNo?: string) => {
+  const removeCadetTombstone = (id?: string, _cadetNo?: string) => {
     const cleanId = String(id || '').trim();
-    const cleanNo = String(cadetNo || '').trim().toUpperCase();
     let changed = false;
     if (cleanId) {
       if (deletedCadetTombstones.current.delete(cleanId)) changed = true;
       if (deletedCadetTombstones.current.delete(cleanId.toUpperCase())) changed = true;
-    }
-    if (cleanNo) {
-      if (deletedCadetTombstones.current.delete(cleanNo)) changed = true;
     }
     if (changed && typeof window !== 'undefined') {
       try {
@@ -889,6 +875,11 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
    * - Photos, passwords, contact details are preserved.
    */
   const reconcileCadet = (local: CadetUserAccount, remote: CadetUserAccount): CadetUserAccount => {
+    // If IDs are present and distinct, they are completely separate cadets and must never be merged
+    if (local.id && remote.id && String(local.id).trim() !== String(remote.id).trim()) {
+      return local;
+    }
+
     const localId = String(local.id || '').trim();
     const localNo = local.cadetNo ? String(local.cadetNo).trim().toUpperCase() : '';
     const lastWrite = Math.max(
@@ -957,7 +948,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const mergeCadetLists = (local: CadetUserAccount[], remote: CadetUserAccount[]): CadetUserAccount[] => {
     if (!Array.isArray(remote) || remote.length === 0) return local || [];
     
-    // Filter remote by tombstones first
+    // Filter remote by tombstones first (tombstones strictly track document IDs)
     const activeRemote = remote.filter((r) => {
       if (!r) return false;
       return !isCadetTombstoned(r.id, r.cadetNo);
@@ -968,23 +959,23 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     const map = new Map<string, CadetUserAccount>();
+    // Seed with local indexed primarily by unique ID
     for (const c of local) {
       if (!c || isCadetTombstoned(c.id, c.cadetNo)) continue;
-      const key = c.cadetNo ? `cadetno-${c.cadetNo.trim().toUpperCase()}` : (c.id || '');
-      if (key) map.set(key, c);
+      const key = c.id ? `id-${String(c.id).trim()}` : `cadet-${Math.random()}`;
+      map.set(key, c);
     }
 
+    // Merge remote indexed primarily by unique ID to prevent collisions across applicants with the same roll
     for (const r of activeRemote) {
-      const rIdKey = r.id && map.has(r.id) ? r.id : null;
-      const rNoKey = r.cadetNo && map.has(`cadetno-${r.cadetNo.trim().toUpperCase()}`) ? `cadetno-${r.cadetNo.trim().toUpperCase()}` : null;
-      const key = rNoKey || rIdKey;
+      const key = r.id ? `id-${String(r.id).trim()}` : '';
 
-      if (key) {
+      if (key && map.has(key)) {
         const existing = map.get(key)!;
         const merged = reconcileCadet(existing, r);
-        map.set(existing.id || key, merged);
-      } else if (r.id) {
-        map.set(r.id, r);
+        map.set(key, merged);
+      } else if (key) {
+        map.set(key, r);
       }
     }
     return Array.from(map.values());
@@ -1017,9 +1008,19 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       }
     }
-    // Write to Appwrite Cloud site_settings if configured (cadets have their own collection)
-    if (isAppwriteConfigured() && key !== 'ngdc_cadet_users_v8' && key !== 'ngdc_cadet_users') {
-      upsertSiteSettingToAppwrite(key, value).catch((err) => {
+    // Write to Appwrite Cloud site_settings (dual persistence enables instant sync across all tabs and devices)
+    if (isAppwriteConfigured()) {
+      let settingVal = value;
+      // Strip large data: base64 URLs from cadet roster when syncing to site_settings to prevent payload overflow
+      if (key === 'ngdc_cadet_users_v8' && Array.isArray(value)) {
+        settingVal = value.map((c) => {
+          if (c && c.avatarUrl && c.avatarUrl.length > 1000 && c.avatarUrl.startsWith('data:')) {
+            return { ...c, avatarUrl: '' };
+          }
+          return c;
+        });
+      }
+      upsertSiteSettingToAppwrite(key, settingVal).catch((err) => {
         console.warn(`Appwrite setting sync error for ${key}:`, err);
       });
     }
@@ -1072,11 +1073,17 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const remoteTombstones = parseArray(settings['ngdc_deleted_cadets_tombstones']);
           remoteTombstones.forEach((x: string) => {
             const str = String(x || '').trim();
-            if (str && str.length > 2) {
+            if (str && str.startsWith('usr-')) {
               deletedCadetTombstones.current.add(str);
               deletedCadetTombstones.current.add(str.toUpperCase());
             }
           });
+        }
+        if (settings['ngdc_cadet_users_v8']) {
+          const remoteCadets = parseArray(settings['ngdc_cadet_users_v8']);
+          if (Array.isArray(remoteCadets) && remoteCadets.length > 0) {
+            setCadetUsers((prev) => mergeCadetLists(prev, remoteCadets));
+          }
         }
         if (settings['ngdc_honor_entries_3cat']) setHonorEntries(parseArray(settings['ngdc_honor_entries_3cat']));
         if (settings['ngdc_contact_config']) setContactConfig(parseObject(settings['ngdc_contact_config'], DEFAULT_CONTACT_CONFIG));
@@ -1118,11 +1125,17 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const remoteTombstones = parseArray(val);
         remoteTombstones.forEach((x: string) => {
           const str = String(x || '').trim();
-          if (str && str.length > 2) {
+          if (str && str.startsWith('usr-')) {
             deletedCadetTombstones.current.add(str);
             deletedCadetTombstones.current.add(str.toUpperCase());
           }
         });
+      }
+      else if (key === 'ngdc_cadet_users_v8') {
+        const remoteCadets = parseArray(val);
+        if (Array.isArray(remoteCadets) && remoteCadets.length > 0) {
+          setCadetUsers((prev) => mergeCadetLists(prev, remoteCadets));
+        }
       }
       else if (key === 'ngdc_honor_entries_3cat') setHonorEntries(parseArray(val));
       else if (key === 'ngdc_contact_config') setContactConfig(parseObject(val, DEFAULT_CONTACT_CONFIG));
@@ -1140,7 +1153,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const unsubscribeAppwrite = subscribeToAppwriteUpdates((event) => {
       if (event.collection === 'site_settings' && event.payload) {
         const key = event.payload.key || event.payload.$id;
-        if (key === 'ngdc_cadet_users_v8' || key === 'ngdc_cadet_users') return;
         let val = event.payload.value;
         try {
           val = typeof val === 'string' ? JSON.parse(val) : val;
@@ -1149,12 +1161,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       } else if (event.collection === 'cadets' && event.payload) {
         if (event.action === 'delete') {
           const docId = String(event.payload.$id || '').trim();
-          const cadetNo = String(event.payload.cadet_no || '').trim().toUpperCase();
           setCadetUsers((prev) => {
             const next = prev.filter((c) => {
               if (!c) return false;
-              if (docId && String(c.id).trim() === docId) return false;
-              if (cadetNo && String(c.cadetNo || '').trim().toUpperCase() === cadetNo) return false;
+              if (docId && String(c.id || '').trim() === docId) return false;
               return true;
             });
             if (typeof window !== 'undefined') {
@@ -1167,13 +1177,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           });
         } else {
           const cadet = mapAppwriteDocumentToCadet(event.payload);
-          if (cadet && (cadet.cadetNo || cadet.id)) {
+          if (cadet && cadet.id) {
             if (isCadetTombstoned(cadet.id, cadet.cadetNo)) return;
             setCadetUsers((prev) => {
-              const targetNo = cadet.cadetNo ? cadet.cadetNo.trim().toUpperCase() : '';
-              const targetId = cadet.id ? String(cadet.id).trim() : '';
+              const targetId = String(cadet.id).trim();
               const idx = prev.findIndex(
-                (c) => (targetId && c.id === targetId) || (targetNo && c.cadetNo && c.cadetNo.trim().toUpperCase() === targetNo)
+                (c) => c && String(c.id || '').trim() === targetId
               );
               let next: CadetUserAccount[];
               if (idx >= 0) {
@@ -1884,56 +1893,42 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const syncCadetsWithCloud = async () => {
     if (isAppwriteConfigured()) {
       try {
-        const remote = await fetchCadetsFromAppwrite();
-        if (remote && Array.isArray(remote)) {
-          const activeRemote = remote.filter((r) => r && !isCadetTombstoned(r.id, r.cadetNo));
-          
-          setCadetUsers((prev) => {
-            // Reconcile without blindly wiping local pending/approved cadets
-            const mergedMap = new Map<string, CadetUserAccount>();
+        const [remoteCadets, settings] = await Promise.all([
+          fetchCadetsFromAppwrite().catch(() => null),
+          fetchSiteSettingsFromAppwrite().catch(() => null),
+        ]);
 
-            // 1. Seed with active remote cadets
-            activeRemote.forEach((rc) => {
-              const key = rc.cadetNo ? `no-${rc.cadetNo.trim().toUpperCase()}` : `id-${rc.id}`;
-              mergedMap.set(key, rc);
-            });
+        let combinedRemote: CadetUserAccount[] = [];
+        const seenIds = new Set<string>();
 
-            // 2. Reconcile with local cadets using one-way protection
-            prev.forEach((lc) => {
-              if (!lc || isCadetTombstoned(lc.id, lc.cadetNo)) return;
-              const keyNo = lc.cadetNo ? `no-${lc.cadetNo.trim().toUpperCase()}` : '';
-              const keyId = lc.id ? `id-${lc.id}` : '';
-              const matchKey = (keyNo && mergedMap.has(keyNo)) ? keyNo : ((keyId && mergedMap.has(keyId)) ? keyId : '');
+        // 1. Prioritize direct cadet collection documents
+        if (remoteCadets && Array.isArray(remoteCadets)) {
+          remoteCadets.forEach((c) => {
+            if (c && c.id && !seenIds.has(String(c.id).trim())) {
+              seenIds.add(String(c.id).trim());
+              combinedRemote.push(c);
+            }
+          });
+        }
 
-              if (matchKey) {
-                const remoteCadet = mergedMap.get(matchKey)!;
-                const reconciled = reconcileCadet(lc, remoteCadet);
-                mergedMap.set(matchKey, reconciled);
-
-                // If local had approval status or recent local edits, push reconciliation to Appwrite
-                const isLocalApproved = lc.isApproved === true || lc.status === 'Active' || lc.status === 'Alumni';
-                const isRemoteApproved = remoteCadet.isApproved === true || remoteCadet.status === 'Active' || remoteCadet.status === 'Alumni';
-                const lcId = String(lc.id || '').trim();
-                const lcNo = lc.cadetNo ? String(lc.cadetNo).trim().toUpperCase() : '';
-                const lastWrite = Math.max(
-                  lastLocalWriteTimestamps.current[lcId] || 0,
-                  lastLocalWriteTimestamps.current[lcNo] || 0
-                );
-                const isRecentlyWritten = Date.now() - lastWrite < 15 * 60 * 1000;
-
-                if ((isLocalApproved && !isRemoteApproved) || isRecentlyWritten) {
-                  upsertCadetToAppwrite(reconciled).catch(() => {});
-                }
-              } else {
-                // Local cadet not present in remote (e.g. newly registered or approved) -> KEEP IT!
-                const localKey = keyNo || keyId || `lc-${Math.random()}`;
-                mergedMap.set(localKey, lc);
-                // Also asynchronously attempt to upsert to Appwrite
-                upsertCadetToAppwrite(lc).catch(() => {});
+        // 2. Also incorporate site_settings ngdc_cadet_users_v8 (dual persistence)
+        if (settings && settings['ngdc_cadet_users_v8']) {
+          const fromSettings = parseArray(settings['ngdc_cadet_users_v8']);
+          if (Array.isArray(fromSettings)) {
+            fromSettings.forEach((c: CadetUserAccount) => {
+              if (c && c.id && !seenIds.has(String(c.id).trim())) {
+                seenIds.add(String(c.id).trim());
+                combinedRemote.push(c);
               }
             });
+          }
+        }
 
-            const merged = Array.from(mergedMap.values());
+        if (combinedRemote.length > 0) {
+          const activeRemote = combinedRemote.filter((r) => r && !isCadetTombstoned(r.id, r.cadetNo));
+          
+          setCadetUsers((prev) => {
+            const merged = mergeCadetLists(prev, activeRemote);
             if (typeof window !== 'undefined') {
               try {
                 localStorage.setItem('ngdc_cadet_users_v8', JSON.stringify(merged));
@@ -1941,7 +1936,6 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             }
             return merged;
           });
-          return;
         }
       } catch (err) {
         console.warn('Error fetching cadets from Appwrite:', err);
@@ -2065,32 +2059,28 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const deleteCadetUser = (id: string, cadetNo?: string) => {
+  const deleteCadetUser = (id: string, _cadetNo?: string) => {
     const normalizedId = String(id || '').trim();
-    const targetCadetNo = String(cadetNo || '').trim().toUpperCase();
 
-    // 1. Immediately record in tombstones (ID + CadetNo)
-    addCadetTombstone(normalizedId, targetCadetNo);
+    // 1. Immediately record in tombstones (strictly by ID)
+    addCadetTombstone(normalizedId);
 
     // 2. Mark write timestamp so incoming sync ignores this deletion window
-    if (targetCadetNo) lastLocalWriteTimestamps.current[targetCadetNo] = Date.now();
     if (normalizedId) lastLocalWriteTimestamps.current[normalizedId] = Date.now();
 
-    // 3. Functional state filter for instant 0ms removal without stale state closures
+    // 3. Functional state filter for instant 0ms removal strictly by ID
     setCadetUsersAndSave((prev: CadetUserAccount[]) => {
       return prev.filter((u) => {
         if (!u) return false;
         const uId = String(u.id || '').trim();
-        const uNo = String(u.cadetNo || '').trim().toUpperCase();
         if (normalizedId && uId === normalizedId) return false;
-        if (targetCadetNo && uNo === targetCadetNo) return false;
         return true;
       });
     });
 
     // 4. Delete from Appwrite Cloud cadets collection
     if (isAppwriteConfigured()) {
-      deleteCadetFromAppwrite(normalizedId, targetCadetNo).catch((err) => {
+      deleteCadetFromAppwrite(normalizedId).catch((err) => {
         console.warn('Failed to delete cadet from Appwrite collection:', err);
       });
     }
@@ -2109,19 +2099,17 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const targetId = String(id || '').trim();
     const targetCadetNo = options.cadetNo ? String(options.cadetNo).trim().toUpperCase() : '';
 
-    // Untombstone in case this cadet or cadetNo was ever tombstoned
-    removeCadetTombstone(targetId, targetCadetNo);
+    // Untombstone in case this cadet ID was ever tombstoned
+    removeCadetTombstone(targetId);
 
     // Record local write timestamps to shield against any sync echo
     const now = Date.now();
     if (targetCadetNo) lastLocalWriteTimestamps.current[targetCadetNo] = now;
     if (targetId) lastLocalWriteTimestamps.current[targetId] = now;
 
-    // Find the applicant in the current state
+    // Find the applicant in the current state strictly by unique applicant ID
     const existing = cadetUsers.find(
-      (c) =>
-        (c && targetId && String(c.id).trim() === targetId) ||
-        (c && targetCadetNo && c.cadetNo && c.cadetNo.trim().toUpperCase() === targetCadetNo)
+      (c) => c && targetId && String(c.id).trim() === targetId
     );
 
     const targetCategory: PlatoonCategory =
@@ -2171,18 +2159,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           avatarUrl: '',
         };
 
-    // Untombstone previous cadet number if it changed
-    if (existing && existing.cadetNo && existing.cadetNo !== finalApprovedCadet.cadetNo) {
-      removeCadetTombstone(existing.id, existing.cadetNo);
-      lastLocalWriteTimestamps.current[existing.cadetNo.trim().toUpperCase()] = now;
-    }
-
     setCadetUsersAndSave((prev: CadetUserAccount[]) => {
       let found = false;
       const next = prev.map((c) => {
-        const matches =
-          (c && targetId && String(c.id).trim() === targetId) ||
-          (c && targetCadetNo && c.cadetNo && c.cadetNo.trim().toUpperCase() === targetCadetNo);
+        const matches = Boolean(c && targetId && String(c.id).trim() === targetId);
         if (!matches) return c;
         found = true;
         return finalApprovedCadet;

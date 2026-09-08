@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAdminData } from '../../../context/AdminDataContext';
 import { CadetUserAccount, FormFieldConfig, PlatoonCategory, PlatoonSection } from '../../../types';
 import { CadetRegistrationForm } from '../../CadetRegistrationForm';
@@ -107,6 +107,15 @@ export const CadetCornerTab: React.FC = () => {
   // Add / Edit Cadet State (Editing occurs directly on admin panel via unified CadetRegistrationForm)
   const [editingCadet, setEditingCadet] = useState<CadetUserAccount | null>(null);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+
+  // Auto-sync with Appwrite Cloud every 6s while on Cadet Corner to immediately reflect phone registrations and edits
+  useEffect(() => {
+    syncCadetsWithCloud();
+    const pollTimer = setInterval(() => {
+      syncCadetsWithCloud();
+    }, 6000);
+    return () => clearInterval(pollTimer);
+  }, []);
 
   const handleStartAddCadet = () => {
     setEditingCadet(null);
