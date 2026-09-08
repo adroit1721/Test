@@ -231,7 +231,7 @@ export const CadetCornerTab: React.FC = () => {
             </div>
             <p className="text-xs md:text-sm text-[#695c4e] dark:text-[#aca596] mt-1 max-w-3xl">
               Manage the 3 serving cadet platoon categories (Male: 31 quota, Female: 31 quota, Band: 15 mixed) and unlimited Ex-cadets.
-              Define login IDs, passwords, review applicants, and control the rank hierarchy displayed on the About page.
+              Define login IDs, passwords, review applicants, and assign platoons, sections, and ranks (approved cadets automatically render into the About Us page hierarchy).
             </p>
 
             {/* Supabase & Cloudinary Quick Status Bar */}

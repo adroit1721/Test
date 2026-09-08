@@ -140,7 +140,7 @@ export function mapCadetToAppwriteDocument(cadet: CadetUserAccount) {
     status: cadet.status || 'Active',
     cadet_type: cadet.cadetType || 'Current',
     is_approved: cadet.isApproved !== false,
-    avatar_url: cadet.avatarUrl || '',
+    avatar_url: cadet.avatarUrl && cadet.avatarUrl.length < 2048 && !cadet.avatarUrl.startsWith('data:') ? cadet.avatarUrl : '',
     raw_data: JSON.stringify(rawWithoutAvatar),
     updated_at: new Date().toISOString(),
   };

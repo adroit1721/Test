@@ -40,21 +40,24 @@ export const CadetDirectoryView: React.FC<CadetDirectoryViewProps> = ({ isCadetL
   // Selected Cadet for Modal
   const [selectedCadet, setSelectedCadet] = useState<CadetUserAccount | null>(null);
 
-  // Available Batches extracted from cadets
+  // Only approved cadets are listed in the public directory
+  const approvedCadets = useMemo(() => {
+    return cadetUsers.filter((c) => c && c.isApproved !== false && c.status !== 'Pending Approval');
+  }, [cadetUsers]);
+
+  // Available Batches extracted from approved cadets
   const availableBatches = useMemo(() => {
     const set = new Set<string>();
-    cadetUsers.forEach((c) => {
+    approvedCadets.forEach((c) => {
       if (c.batch) set.add(c.batch.trim());
     });
     return Array.from(set).sort();
-  }, [cadetUsers]);
+  }, [approvedCadets]);
 
   // Filtered Cadets
   const filteredCadets = useMemo(() => {
-    return cadetUsers.filter((cadet) => {
+    return approvedCadets.filter((cadet) => {
       if (!cadet) return false;
-      // Must be approved (exclude pending applicants)
-      if (cadet.isApproved === false || cadet.status === 'Pending Approval') return false;
 
       const effectiveType = cadet.cadetType || (cadet.category === 'Ex-cadets' ? 'Ex-cadet' : 'Current');
 
@@ -123,15 +126,15 @@ export const CadetDirectoryView: React.FC<CadetDirectoryViewProps> = ({ isCadetL
 
       return true;
     });
-  }, [cadetUsers, typeFilter, platoonFilter, rankFilter, batchFilter, searchQuery]);
+  }, [approvedCadets, typeFilter, platoonFilter, rankFilter, batchFilter, searchQuery]);
 
   const totalCurrentCount = useMemo(
-    () => cadetUsers.filter((c) => c.cadetType !== 'Ex-cadet' && c.category !== 'Ex-cadets').length,
-    [cadetUsers]
+    () => approvedCadets.filter((c) => c.cadetType !== 'Ex-cadet' && c.category !== 'Ex-cadets').length,
+    [approvedCadets]
   );
   const totalExCount = useMemo(
-    () => cadetUsers.filter((c) => c.cadetType === 'Ex-cadet' || c.category === 'Ex-cadets').length,
-    [cadetUsers]
+    () => approvedCadets.filter((c) => c.cadetType === 'Ex-cadet' || c.category === 'Ex-cadets').length,
+    [approvedCadets]
   );
 
   return (
@@ -156,7 +159,7 @@ export const CadetDirectoryView: React.FC<CadetDirectoryViewProps> = ({ isCadetL
           {/* Quick Count Badges */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#eedc82]/40 text-[#493e08] dark:text-[#eedc82] border border-[#d5c470]">
-              Total: {cadetUsers.length} Cadets
+              Total: {approvedCadets.length} Cadets
             </span>
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
               Serving: {totalCurrentCount}
@@ -177,7 +180,7 @@ export const CadetDirectoryView: React.FC<CadetDirectoryViewProps> = ({ isCadetL
                 : 'bg-[#f6f3ed] dark:bg-[#141311] text-[#695c4e] dark:text-[#aca596] border border-[#cdc6b3]/50'
             }`}
           >
-            All Cadets ({cadetUsers.length})
+            All Cadets ({approvedCadets.length})
           </button>
           <button
             onClick={() => setTypeFilter('Current')}
