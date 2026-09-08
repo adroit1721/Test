@@ -1765,14 +1765,51 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const remote = await fetchCadetsFromAppwrite();
         if (remote && Array.isArray(remote)) {
           const activeRemote = remote.filter((r) => r && !isCadetTombstoned(r.id, r.cadetNo));
-          setCadetUsers(activeRemote);
-          if (typeof window !== 'undefined') {
-            try {
-              const str = JSON.stringify(activeRemote);
-              localStorage.setItem('ngdc_cadet_users_v8', str);
-              localStorage.setItem('ngdc_cadet_users', str);
-            } catch {}
-          }
+          
+          setCadetUsers((prev) => {
+            // Reconcile without blindly wiping local pending/approved cadets
+            const mergedMap = new Map<string, CadetUserAccount>();
+
+            // 1. Put all valid remote cadets
+            activeRemote.forEach((rc) => {
+              const key = rc.cadetNo ? rc.cadetNo.trim().toUpperCase() : rc.id;
+              mergedMap.set(key, rc);
+            });
+
+            // 2. Reconcile with local cadets
+            prev.forEach((lc) => {
+              if (!lc || isCadetTombstoned(lc.id, lc.cadetNo)) return;
+              const key = lc.cadetNo ? lc.cadetNo.trim().toUpperCase() : lc.id;
+              if (mergedMap.has(key)) {
+                const remoteCadet = mergedMap.get(key)!;
+                const localWriteTime =
+                  (lc.cadetNo && lastLocalWriteTimestamps.current[lc.cadetNo.trim().toUpperCase()]) ||
+                  (lc.id && lastLocalWriteTimestamps.current[lc.id]) ||
+                  0;
+                // If local write occurred recently (within 2 minutes), keep local changes
+                if (Date.now() - localWriteTime < 120000) {
+                  mergedMap.set(key, { ...remoteCadet, ...lc });
+                } else {
+                  mergedMap.set(key, { ...lc, ...remoteCadet });
+                }
+              } else {
+                // Local cadet not present in remote (e.g. newly registered or approved) -> KEEP IT!
+                mergedMap.set(key, lc);
+                // Also asynchronously attempt to upsert to Appwrite
+                upsertCadetToAppwrite(lc).catch(() => {});
+              }
+            });
+
+            const merged = Array.from(mergedMap.values());
+            if (typeof window !== 'undefined') {
+              try {
+                const str = JSON.stringify(merged);
+                localStorage.setItem('ngdc_cadet_users_v8', str);
+                localStorage.setItem('ngdc_cadet_users', str);
+              } catch {}
+            }
+            return merged;
+          });
           return;
         }
       } catch (err) {
@@ -1793,6 +1830,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       ...user,
       id: `usr-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
       category,
+      platoon: user.platoon || category,
       section: user.section || (category === 'Band Platoon' ? 'Band Section 01' : 'Section 01'),
       status: user.status || (category === 'Ex-cadets' ? 'Alumni' : 'Active'),
       cadetType: user.cadetType || (category === 'Ex-cadets' ? 'Ex-cadet' : 'Current'),
@@ -1801,7 +1839,11 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // Remove from tombstone set if this cadet was previously deleted
     deletedCadetTombstones.current.delete(newUser.id);
-    if (newUser.cadetNo) deletedCadetTombstones.current.delete(newUser.cadetNo.trim().toUpperCase());
+    if (newUser.cadetNo) {
+      deletedCadetTombstones.current.delete(newUser.cadetNo.trim().toUpperCase());
+      lastLocalWriteTimestamps.current[newUser.cadetNo.trim().toUpperCase()] = Date.now();
+    }
+    lastLocalWriteTimestamps.current[newUser.id] = Date.now();
 
     setCadetUsersAndSave((prev) => [newUser, ...prev]);
 
@@ -1814,22 +1856,36 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const updateCadetUser = (id: string, user: Partial<CadetUserAccount>) => {
-    setCadetUsersAndSave((prev) => {
-      const updated = prev.map((u) => {
-        if (u.id === id) {
-          const merged = { ...u, ...user };
-          // Push to Appwrite Cloud if configured
-          if (isAppwriteConfigured()) {
-            upsertCadetToAppwrite(merged).catch((err) => {
-              console.warn('Failed to update cadet in Appwrite:', err);
-            });
-          }
-          return merged;
-        }
-        return u;
+    const targetId = String(id || '').trim();
+    const targetCadetNo = user.cadetNo ? String(user.cadetNo).trim().toUpperCase() : '';
+
+    let updatedCadet: CadetUserAccount | null = null;
+
+    setCadetUsersAndSave((prev: CadetUserAccount[]) => {
+      return prev.map((u) => {
+        const matches =
+          (u.id && String(u.id).trim() === targetId) ||
+          (targetCadetNo && u.cadetNo && u.cadetNo.trim().toUpperCase() === targetCadetNo);
+        if (!matches) return u;
+        const merged: CadetUserAccount = { ...u, ...user };
+        updatedCadet = merged;
+        return merged;
       });
-      return updated;
     });
+
+    if (updatedCadet) {
+      if (updatedCadet.cadetNo) {
+        lastLocalWriteTimestamps.current[updatedCadet.cadetNo.trim().toUpperCase()] = Date.now();
+      }
+      if (updatedCadet.id) {
+        lastLocalWriteTimestamps.current[updatedCadet.id] = Date.now();
+      }
+      if (isAppwriteConfigured()) {
+        upsertCadetToAppwrite(updatedCadet).catch((err) => {
+          console.warn('Failed to update cadet in Appwrite:', err);
+        });
+      }
+    }
   };
 
   const deleteCadetUser = (id: string, cadetNo?: string) => {
@@ -1887,34 +1943,99 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       cadetNo?: string;
     }
   ) => {
-    let approvedCadet: CadetUserAccount | null = null;
-    setCadetUsersAndSave((prev) =>
-      prev.map((c) => {
-        if (c.id !== id) return c;
-        const targetCategory: PlatoonCategory = options.category || c.category || 'Male Platoon';
-        const isExCadet = c.cadetType === 'Ex-cadet' || targetCategory === 'Ex-cadets';
-        const updated: CadetUserAccount = {
-          ...c,
-          cadetNo: options.cadetNo?.trim() || c.cadetNo,
-          password: options.password?.trim() || c.password,
-          category: targetCategory,
-          section: options.section || c.section || (isExCadet ? 'Ex-cadet Platoon' : 'Section 01'),
-          rank: options.rank || c.rank || (isExCadet ? 'Ex-Cadet' : 'Cadet (CDT)'),
-          status: isExCadet ? 'Alumni' : 'Active',
-          cadetType: isExCadet ? 'Ex-cadet' : 'Current',
-          isApproved: true,
-        };
-        approvedCadet = updated;
-        return updated;
-      })
+    const targetId = String(id || '').trim();
+    const targetCadetNo = options.cadetNo ? String(options.cadetNo).trim().toUpperCase() : '';
+
+    // Untombstone in case this cadet or cadetNo was ever tombstoned
+    if (targetId) deletedCadetTombstones.current.delete(targetId);
+    if (targetCadetNo) deletedCadetTombstones.current.delete(targetCadetNo);
+
+    // Find the target cadet synchronously from current state
+    const existing = cadetUsers.find(
+      (c) =>
+        (c.id && String(c.id).trim() === targetId) ||
+        (targetCadetNo && c.cadetNo && c.cadetNo.trim().toUpperCase() === targetCadetNo)
     );
 
-    if (approvedCadet) {
-      if (isAppwriteConfigured()) {
-        upsertCadetToAppwrite(approvedCadet).catch((err) => {
-          console.warn('Failed to upsert approved cadet to Appwrite:', err);
-        });
+    const targetCategory: PlatoonCategory =
+      options.category || (existing ? existing.category : 'Male Platoon') || 'Male Platoon';
+    const isExCadet =
+      (existing && existing.cadetType === 'Ex-cadet') || targetCategory === 'Ex-cadets';
+
+    let approvedCadet: CadetUserAccount;
+    if (existing) {
+      approvedCadet = {
+        ...existing,
+        cadetNo: options.cadetNo?.trim() || existing.cadetNo,
+        password: options.password?.trim() || existing.password,
+        category: targetCategory,
+        platoon: isExCadet ? 'Ex-cadets Alumni' : targetCategory,
+        section: options.section || existing.section || (isExCadet ? 'Ex-cadet Platoon' : 'Section 01'),
+        rank: options.rank || existing.rank || (isExCadet ? 'Ex-Cadet' : 'Cadet (CDT)'),
+        status: isExCadet ? 'Alumni' : 'Active',
+        cadetType: isExCadet ? 'Ex-cadet' : 'Current',
+        isApproved: true,
+      };
+    } else {
+      approvedCadet = {
+        id: targetId || `usr-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        cadetNo: targetCadetNo || `NGDC-${Math.floor(1000 + Math.random() * 9000)}`,
+        password: options.password?.trim() || 'cadet123',
+        name: 'Cadet',
+        category: targetCategory,
+        platoon: isExCadet ? 'Ex-cadets Alumni' : targetCategory,
+        section: options.section || (isExCadet ? 'Ex-cadet Platoon' : 'Section 01'),
+        rank: options.rank || (isExCadet ? 'Ex-Cadet' : 'Cadet (CDT)'),
+        status: isExCadet ? 'Alumni' : 'Active',
+        cadetType: isExCadet ? 'Ex-cadet' : 'Current',
+        isApproved: true,
+        gender: targetCategory === 'Female Platoon' ? 'Female' : 'Male',
+        appointment: isExCadet ? 'Alumni' : 'Cadet Trainee',
+        batch: 'Batch 24',
+        collegeId: '',
+        department: '',
+        bloodGroup: 'B+',
+        phone: '',
+        email: '',
+        joiningDate: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+        attendancePercentage: 100,
+        paradesAttended: 24,
+        totalParades: 24,
+        campsAttended: [],
+        certificates: [],
+        avatarUrl: '',
+      };
+    }
+
+    // Mark recent local write timestamp to ignore echo from realtime or sync
+    if (approvedCadet.cadetNo) {
+      lastLocalWriteTimestamps.current[approvedCadet.cadetNo.trim().toUpperCase()] = Date.now();
+    }
+    if (approvedCadet.id) {
+      lastLocalWriteTimestamps.current[approvedCadet.id] = Date.now();
+    }
+
+    setCadetUsersAndSave((prev: CadetUserAccount[]) => {
+      let found = false;
+      const next = prev.map((c) => {
+        const matches =
+          (c.id && String(c.id).trim() === targetId) ||
+          (targetCadetNo && c.cadetNo && c.cadetNo.trim().toUpperCase() === targetCadetNo);
+        if (!matches) return c;
+        found = true;
+        return approvedCadet;
+      });
+
+      if (!found) {
+        return [approvedCadet, ...next];
       }
+      return next;
+    });
+
+    if (isAppwriteConfigured()) {
+      upsertCadetToAppwrite(approvedCadet).catch((err) => {
+        console.warn('Failed to upsert approved cadet to Appwrite:', err);
+      });
     }
   };
 
@@ -2032,6 +2153,14 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isApproved,
       avatarUrl: cadetData.avatarUrl || '',
     };
+
+    // Untombstone in case this ID or Cadet No was tombstoned previously
+    deletedCadetTombstones.current.delete(newCadet.id);
+    if (newCadet.cadetNo) {
+      deletedCadetTombstones.current.delete(newCadet.cadetNo.trim().toUpperCase());
+      lastLocalWriteTimestamps.current[newCadet.cadetNo.trim().toUpperCase()] = Date.now();
+    }
+    lastLocalWriteTimestamps.current[newCadet.id] = Date.now();
 
     setCadetUsersAndSave((prev) => [newCadet, ...prev]);
 

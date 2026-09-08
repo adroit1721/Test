@@ -52,17 +52,20 @@ export const CadetDirectoryView: React.FC<CadetDirectoryViewProps> = ({ isCadetL
   // Filtered Cadets
   const filteredCadets = useMemo(() => {
     return cadetUsers.filter((cadet) => {
-      // Must be approved (or status !== 'Pending Approval')
-      if (cadet.status === 'Pending Approval' && !cadet.isApproved) return false;
+      if (!cadet) return false;
+      // Must be approved (exclude pending applicants)
+      if (cadet.isApproved === false || cadet.status === 'Pending Approval') return false;
+
+      const effectiveType = cadet.cadetType || (cadet.category === 'Ex-cadets' ? 'Ex-cadet' : 'Current');
 
       // Type Filter
-      if (typeFilter === 'Current' && cadet.cadetType === 'Ex-cadet') return false;
-      if (typeFilter === 'Ex-cadet' && cadet.cadetType !== 'Ex-cadet' && cadet.category !== 'Ex-cadets') return false;
+      if (typeFilter === 'Current' && effectiveType === 'Ex-cadet') return false;
+      if (typeFilter === 'Ex-cadet' && effectiveType !== 'Ex-cadet') return false;
 
       // Platoon Filter
       if (platoonFilter !== 'All') {
         if (platoonFilter === 'Ex-cadets Alumni') {
-          if (cadet.cadetType !== 'Ex-cadet' && cadet.category !== 'Ex-cadets') return false;
+          if (effectiveType !== 'Ex-cadet') return false;
         } else if (cadet.category !== platoonFilter && cadet.platoon !== platoonFilter) {
           return false;
         }

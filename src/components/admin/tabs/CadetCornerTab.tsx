@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAdminData } from '../../../context/AdminDataContext';
-import { CadetUserAccount, FormFieldConfig, PlatoonCategory, PlatoonSection, CadetRankHierarchyItem } from '../../../types';
+import { CadetUserAccount, FormFieldConfig, PlatoonCategory, PlatoonSection } from '../../../types';
 import { CadetRegistrationForm } from '../../CadetRegistrationForm';
 import { CloudinaryUploader } from '../../common/CloudinaryUploader';
 import { DatabaseAndCloudSettingsModal } from '../DatabaseAndCloudSettingsModal';
@@ -59,79 +59,14 @@ export const CadetCornerTab: React.FC = () => {
     syncCadetsWithCloud,
     isSupabaseActive,
     isAppwriteActive,
-    cadetRanks,
-    addCadetRank,
-    updateCadetRank,
-    deleteCadetRank,
   } = useAdminData();
 
-  // Active subtab: 'roster' | 'registerCadet' | 'hierarchy' | 'applicants'
-  const [activeSubtab, setActiveSubtab] = useState<'roster' | 'registerCadet' | 'hierarchy' | 'applicants'>('roster');
+  // Active subtab: 'roster' | 'registerCadet' | 'applicants'
+  const [activeSubtab, setActiveSubtab] = useState<'roster' | 'registerCadet' | 'applicants'>('roster');
 
   // Supabase & Cloudinary Settings Modal
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-
-  // Rank Hierarchy modal state
-  const [isAddingRank, setIsAddingRank] = useState(false);
-  const [editingRank, setEditingRank] = useState<CadetRankHierarchyItem | null>(null);
-  const [rankForm, setRankForm] = useState<Omit<CadetRankHierarchyItem, 'id'>>({
-    rank: '',
-    holderName: '',
-    cadetNo: '',
-    image: '',
-    description: '',
-    order: 1,
-  });
-
-  const handleStartAddRank = () => {
-    setRankForm({
-      rank: 'Senior Cadet Under Officer (CUO)',
-      holderName: 'Cadet Name',
-      cadetNo: 'NGDC-2024-001',
-      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-      description: 'Leads the platoon during major ceremonial guards and coordinates drill instructors.',
-      order: cadetRanks.length + 1,
-    });
-    setEditingRank(null);
-    setIsAddingRank(true);
-  };
-
-  const handleStartEditRank = (rank: CadetRankHierarchyItem) => {
-    setEditingRank(rank);
-    setRankForm({
-      rank: rank.rank,
-      holderName: rank.holderName,
-      cadetNo: rank.cadetNo || '',
-      image: rank.image || '',
-      description: rank.description,
-      order: rank.order,
-    });
-    setIsAddingRank(false);
-  };
-
-  const handleSaveRank = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingRank) {
-      updateCadetRank(editingRank.id, rankForm);
-      setEditingRank(null);
-    } else {
-      addCadetRank(rankForm);
-      setIsAddingRank(false);
-    }
-  };
-
-  const handleRankImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setRankForm((prev) => ({ ...prev, image: event.target!.result as string }));
-      }
-    };
-    reader.readAsDataURL(file);
-  };
 
   // Search & Filters for Roster
   const [searchQuery, setSearchQuery] = useState('');
@@ -157,8 +92,8 @@ export const CadetCornerTab: React.FC = () => {
   const [newFieldOptions, setNewFieldOptions] = useState('');
 
   // Quota counts for currently serving approved cadets
-  const approvedCadets = cadetUsers.filter((c) => c.isApproved && c.status !== 'Pending Approval');
-  const pendingApplicants = cadetUsers.filter((c) => !c.isApproved || c.status === 'Pending Approval');
+  const approvedCadets = cadetUsers.filter((c) => c && c.isApproved !== false && c.status !== 'Pending Approval');
+  const pendingApplicants = cadetUsers.filter((c) => c && (c.isApproved === false || c.status === 'Pending Approval'));
 
   const maleServingCount = approvedCadets.filter((c) => c.category === 'Male Platoon' && c.cadetType !== 'Ex-cadet').length;
   const femaleServingCount = approvedCadets.filter((c) => c.category === 'Female Platoon' && c.cadetType !== 'Ex-cadet').length;
@@ -211,16 +146,26 @@ export const CadetCornerTab: React.FC = () => {
       return;
     }
 
+    const approvedName = approvingApplicant.name;
+    const assignedCadetNo = approvalCadetNo.trim();
+    const assignedCategory = approvalCategory;
+    const assignedSection = approvalSection;
+    const assignedRank = approvalRank;
+
     approveCadetApplicant(approvingApplicant.id, {
       password: approvalPassword.trim(),
-      category: approvalCategory,
-      section: approvalSection,
-      rank: approvalRank,
-      cadetNo: approvalCadetNo.trim(),
+      category: assignedCategory,
+      section: assignedSection,
+      rank: assignedRank,
+      cadetNo: assignedCadetNo,
     });
 
-    alert(`Cadet "${approvingApplicant.name}" approved!\nLogin ID: ${approvalCadetNo.trim()}\nPassword: ${approvalPassword.trim()}\nPlatoon: ${approvalCategory} (${approvalSection})`);
     setApprovingApplicant(null);
+    // Automatically switch to roster and reset filters so the approved cadet is immediately visible
+    setActiveSubtab('roster');
+    setCategoryFilter('All');
+    setSectionFilter('All');
+    setSearchQuery('');
   };
 
   const handleAddField = (e: React.FormEvent) => {
@@ -251,12 +196,16 @@ export const CadetCornerTab: React.FC = () => {
 
   // Filtered Approved Cadets
   const filteredRoster = approvedCadets.filter((c) => {
+    const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
-      c.cadetNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.batch.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.phone && c.phone.includes(searchQuery));
+      !q ||
+      (c.cadetNo || '').toLowerCase().includes(q) ||
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.department || '').toLowerCase().includes(q) ||
+      (c.batch || '').toLowerCase().includes(q) ||
+      (c.rank || '').toLowerCase().includes(q) ||
+      (c.collegeId || '').toLowerCase().includes(q) ||
+      Boolean(c.phone && c.phone.includes(q));
 
     const matchesCategory =
       categoryFilter === 'All' || c.category === categoryFilter || (categoryFilter === 'Ex-cadets' && c.cadetType === 'Ex-cadet');
@@ -358,18 +307,6 @@ export const CadetCornerTab: React.FC = () => {
                   {pendingApplicants.length}
                 </span>
               )}
-            </button>
-
-            <button
-              onClick={() => setActiveSubtab('hierarchy')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeSubtab === 'hierarchy'
-                  ? 'bg-[#eedc82] text-[#1c1c18] shadow-2xs'
-                  : 'text-[#695c4e] dark:text-[#aca596]'
-              }`}
-            >
-              <Award className="w-3.5 h-3.5" />
-              <span>Rank Hierarchy ({cadetRanks.length})</span>
             </button>
 
             <button
@@ -909,132 +846,6 @@ export const CadetCornerTab: React.FC = () => {
         </div>
       )}
 
-      {/* SUBTAB: CADET RANK HIERARCHY (Transferred from About Us Admin) */}
-      {activeSubtab === 'hierarchy' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#fcf9f3] dark:bg-[#1e1d19] p-6 rounded-3xl border border-[#cdc6b3]/50 dark:border-[#423e35] shadow-xs">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-[#eedc82]/50 text-[#6b5e10] dark:text-[#eedc82]">
-                  <Award className="w-5 h-5" />
-                </span>
-                <h3 className="text-lg md:text-xl font-bold text-[#1c1c18] dark:text-[#fcfbf7]">
-                  Cadet Rank Hierarchy Control
-                </h3>
-              </div>
-              <p className="text-xs md:text-sm text-[#695c4e] dark:text-[#aca596] mt-1">
-                Manage the formal chain of cadet ranks (CUO, Sergeant, Corporal, Lance Corporal, Cadet), appointment holders, and official command duties.
-              </p>
-            </div>
-            <button
-              onClick={handleStartAddRank}
-              className="japandi-btn-primary text-xs py-2.5 px-4 font-bold flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Rank Level</span>
-            </button>
-          </div>
-
-          {cadetRanks.length === 0 ? (
-            <div className="p-12 text-center bg-[#fcf9f3] dark:bg-[#1e1d19] border border-dashed border-[#cdc6b3] dark:border-[#423e35] rounded-3xl space-y-3">
-              <Award className="w-10 h-10 text-[#7c7767] mx-auto opacity-50" />
-              <p className="text-sm font-semibold text-[#1c1c18] dark:text-[#fcfbf7]">
-                No cadet rank hierarchy levels configured yet
-              </p>
-              <button
-                onClick={handleStartAddRank}
-                className="japandi-btn-primary text-xs py-2 px-4 inline-flex items-center gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add First Rank Level</span>
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[...cadetRanks]
-                .sort((a, b) => a.order - b.order)
-                .map((rank) => (
-                  <div
-                    key={rank.id}
-                    className="bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3]/50 dark:border-[#423e35] p-5 rounded-3xl space-y-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-7 h-7 rounded-full bg-[#eedc82] text-[#1c1c18] font-bold text-xs flex items-center justify-center shrink-0">
-                            #{rank.order}
-                          </span>
-                          <div>
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#eedc82]/30 text-[#6b5e10] dark:text-[#eedc82] border border-[#eedc82]/60">
-                              {rank.rank}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleStartEditRank(rank)}
-                            className="p-1.5 rounded-lg text-[#7c7767] hover:text-[#1c1c18] dark:hover:text-[#fcfbf7] hover:bg-[#eedc82]/20 cursor-pointer"
-                            title="Edit Rank Level"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Delete rank level "${rank.rank}"?`)) {
-                                deleteCadetRank(rank.id);
-                              }
-                            }}
-                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 cursor-pointer"
-                            title="Delete Rank Level"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 pt-1">
-                        {rank.image ? (
-                          <div className="w-14 h-14 rounded-2xl overflow-hidden border border-[#cdc6b3] dark:border-[#423e35] shrink-0 bg-[#ded2be]">
-                            <img
-                              src={rank.image}
-                              alt={rank.holderName}
-                              className="w-full h-full object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-14 h-14 rounded-2xl bg-[#eedc82]/20 text-[#6b5e10] dark:text-[#eedc82] flex items-center justify-center font-bold text-base border border-[#eedc82]/40 shrink-0">
-                            {rank.holderName?.charAt(0) || 'C'}
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <h4 className="font-bold text-sm text-[#1c1c18] dark:text-[#fcfbf7] truncate">
-                            {rank.holderName}
-                          </h4>
-                          {rank.cadetNo && (
-                            <p className="text-xs text-[#6b5e10] dark:text-[#eedc82] font-mono">
-                              {rank.cadetNo}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-[#4a4738] dark:text-[#aca596] leading-relaxed line-clamp-3 pt-1">
-                        {rank.description}
-                      </p>
-                    </div>
-
-                    <div className="pt-3 border-t border-[#cdc6b3]/40 dark:border-[#423e35] flex items-center justify-between text-[11px] text-[#7c7767]">
-                      <span>Order Priority: {rank.order}</span>
-                      <span className="font-semibold text-[#6b5e10] dark:text-[#eedc82]">Active Rank</span>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* SUBTAB 3: DIRECT CADET REGISTRATION & IN-PANEL EDITING */}
       {activeSubtab === 'registerCadet' && (
         <div className="space-y-4">
@@ -1260,135 +1071,6 @@ export const CadetCornerTab: React.FC = () => {
                 >
                   <Check className="w-3.5 h-3.5" />
                   <span>Approve & Grant Login</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: ADD OR EDIT CADET RANK HIERARCHY */}
-      {(isAddingRank || editingRank) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3] dark:border-[#423e35] rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#cdc6b3]/50 dark:border-[#423e35] pb-3">
-              <h3 className="font-bold text-base text-[#1c1c18] dark:text-[#fcfbf7] flex items-center gap-2">
-                <Award className="w-4 h-4 text-[#6b5e10] dark:text-[#eedc82]" />
-                <span>{editingRank ? 'Edit Rank Hierarchy Level' : 'Add Rank Hierarchy Level'}</span>
-              </h3>
-              <button
-                onClick={() => {
-                  setIsAddingRank(false);
-                  setEditingRank(null);
-                }}
-                className="p-1 rounded-lg text-[#7c7767] hover:bg-[#eedc82]/20 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveRank} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                  Rank Title (e.g. Cadet Under Officer / CUO) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={rankForm.rank}
-                  onChange={(e) => setRankForm({ ...rankForm, rank: e.target.value })}
-                  placeholder="e.g. Cadet Under Officer (CUO)"
-                  className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-bold"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                    Rank Holder Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={rankForm.holderName}
-                    onChange={(e) => setRankForm({ ...rankForm, holderName: e.target.value })}
-                    placeholder="Cadet full name"
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                    Cadet Number / ID
-                  </label>
-                  <input
-                    type="text"
-                    value={rankForm.cadetNo || ''}
-                    onChange={(e) => setRankForm({ ...rankForm, cadetNo: e.target.value })}
-                    placeholder="e.g. NGDC-2024-001"
-                    className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                  Display Order / Hierarchy Priority (1 = Top Senior) *
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  required
-                  value={rankForm.order}
-                  onChange={(e) => setRankForm({ ...rankForm, order: parseInt(e.target.value) || 1 })}
-                  className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
-                />
-              </div>
-
-              {/* Cloudinary Image Uploader for Rank Holder */}
-              <div>
-                <CloudinaryUploader
-                  folder="ranks"
-                  label="Rank Holder Photograph (Cloudinary Upload)"
-                  value={rankForm.image}
-                  currentImageUrl={rankForm.image}
-                  onChange={(url) => setRankForm({ ...rankForm, image: url })}
-                  onUploadComplete={(url) => setRankForm({ ...rankForm, image: url })}
-                  helpText="Upload the official photograph for this rank holder via Cloudinary CDN."
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1">
-                  Duties & Command Responsibilities *
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  value={rankForm.description}
-                  onChange={(e) => setRankForm({ ...rankForm, description: e.target.value })}
-                  placeholder="Describe command duties, squad coordination, drill instructions..."
-                  className="w-full bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none leading-relaxed"
-                />
-              </div>
-
-              <div className="pt-3 flex justify-end gap-2 border-t border-[#cdc6b3]/50 dark:border-[#423e35]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAddingRank(false);
-                    setEditingRank(null);
-                  }}
-                  className="japandi-btn-secondary text-xs py-2 px-3 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="japandi-btn-primary text-xs py-2 px-4 font-bold flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>{editingRank ? 'Save Rank Level' : 'Add Rank Level'}</span>
                 </button>
               </div>
             </form>
