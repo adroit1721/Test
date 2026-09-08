@@ -121,7 +121,7 @@ export const CadetCornerTab: React.FC = () => {
   const handleSetPassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (!passwordModalCadet || !newPasswordValue.trim()) return;
-    updateCadetUser(passwordModalCadet.id, { password: newPasswordValue.trim() });
+    updateCadetUser(passwordModalCadet.id, { password: newPasswordValue.trim() }, passwordModalCadet.cadetNo);
     alert(`Password for Cadet ${passwordModalCadet.cadetNo} (${passwordModalCadet.name}) updated to: "${newPasswordValue.trim()}"`);
     setPasswordModalCadet(null);
     setNewPasswordValue('');

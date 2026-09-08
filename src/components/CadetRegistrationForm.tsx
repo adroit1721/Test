@@ -320,7 +320,7 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
     };
 
     if (editingCadet) {
-      updateCadetUser(editingCadet.id, cadetPayload);
+      updateCadetUser(editingCadet.id, cadetPayload, editingCadet.cadetNo);
       setIsSubmitting(false);
       const updated = { ...editingCadet, ...cadetPayload } as CadetUserAccount;
       setSuccessCadet(updated);
@@ -401,7 +401,7 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
     };
 
     if (editingCadet) {
-      updateCadetUser(editingCadet.id, cadetPayload);
+      updateCadetUser(editingCadet.id, cadetPayload, editingCadet.cadetNo);
       setIsSubmitting(false);
       const updated = { ...editingCadet, ...cadetPayload } as CadetUserAccount;
       setSuccessCadet(updated);

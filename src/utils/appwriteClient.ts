@@ -137,9 +137,9 @@ export function mapCadetToAppwriteDocument(cadet: CadetUserAccount) {
     attendance_percentage: Number(cadet.attendancePercentage ?? 100),
     parades_attended: Number(cadet.paradesAttended ?? 0),
     total_parades: Number(cadet.totalParades ?? 0),
-    status: cadet.status || 'Active',
+    status: cadet.status === 'Pending Approval' || cadet.isApproved === false ? 'Pending Approval' : (cadet.status || 'Active'),
     cadet_type: cadet.cadetType || 'Current',
-    is_approved: cadet.isApproved !== false,
+    is_approved: !(cadet.status === 'Pending Approval' || cadet.isApproved === false),
     avatar_url: cadet.avatarUrl && cadet.avatarUrl.length < 2048 && !cadet.avatarUrl.startsWith('data:') ? cadet.avatarUrl : '',
     raw_data: JSON.stringify(rawWithoutAvatar),
     updated_at: new Date().toISOString(),
@@ -156,6 +156,19 @@ export function mapAppwriteDocumentToCadet(doc: any): CadetUserAccount {
       raw = typeof doc.raw_data === 'string' ? JSON.parse(doc.raw_data) : doc.raw_data;
     } catch {}
   }
+
+  // Strictly identify if this account is pending approval
+  const isPending =
+    doc.status === 'Pending Approval' ||
+    raw.status === 'Pending Approval' ||
+    doc.is_approved === false ||
+    doc.is_approved === 'false' ||
+    raw.isApproved === false;
+
+  const resolvedStatus = isPending
+    ? 'Pending Approval'
+    : ((doc.status || raw.status || 'Active') as 'Active' | 'Under Training' | 'Alumni');
+  const resolvedIsApproved = !isPending;
 
   return {
     id: doc.$id || raw.id || ID.unique(),
@@ -195,9 +208,9 @@ export function mapAppwriteDocumentToCadet(doc: any): CadetUserAccount {
     totalParades: doc.total_parades ?? raw.totalParades ?? 0,
     campsAttended: raw.campsAttended || [],
     certificates: raw.certificates || [],
-    status: doc.status || raw.status || 'Active',
+    status: resolvedStatus,
     cadetType: doc.cadet_type || raw.cadetType || 'Current',
-    isApproved: doc.is_approved !== false,
+    isApproved: resolvedIsApproved,
     avatarUrl: doc.avatar_url || raw.avatarUrl || '',
     customFields: raw.customFields,
   };
