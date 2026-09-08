@@ -1,6 +1,19 @@
 import { Client, Databases, Storage, ID, Query } from 'appwrite';
 import { CadetUserAccount } from '../types';
 
+// Defensive safety guard: prevent uncaught InvalidStateError when sending on a WebSocket that is CONNECTING/CLOSING
+if (typeof window !== 'undefined' && typeof window.WebSocket !== 'undefined') {
+  try {
+    const originalSend = window.WebSocket.prototype.send;
+    window.WebSocket.prototype.send = function (data: any) {
+      if (this.readyState === window.WebSocket.OPEN) {
+        return originalSend.call(this, data);
+      }
+      // Silently prevent crash if socket is still in CONNECTING or CLOSING state
+    };
+  } catch {}
+}
+
 let appwriteClientInstance: Client | null = null;
 let appwriteDatabasesInstance: Databases | null = null;
 
@@ -357,42 +370,57 @@ export async function upsertSiteSettingToAppwrite(key: string, value: any): Prom
 }
 
 /**
- * Subscribe to Appwrite Realtime events
+ * Subscribe to Appwrite updates.
+ * Uses resilient REST polling to synchronize remote updates (site_settings)
+ * without relying on Appwrite Cloud's unstable/restricted WebSocket realtime endpoints
+ * which cause disconnect reconnect loops and InvalidStateError.
  */
 export function subscribeToAppwriteUpdates(
   onUpdate: (event: { collection: string; payload: any; action: string }) => void
 ): () => void {
-  const client = getAppwriteClient();
-  if (!client) return () => {};
-  const config = getAppwriteConfig();
+  if (!isAppwriteConfigured()) return () => {};
 
-  try {
-    const unsubscribe = client.subscribe(
-      [
-        `databases.${config.databaseId}.collections.${config.settingsCollectionId}.documents`,
-        `databases.${config.databaseId}.collections.${config.cadetsCollectionId}.documents`,
-      ],
-      (response: any) => {
-        const events = Array.isArray(response.events) ? response.events : [];
-        const isCadet = events.some((e: string) => e.includes(config.cadetsCollectionId));
-        const action = events.some((e: string) => e.includes('.delete'))
-          ? 'delete'
-          : events.some((e: string) => e.includes('.create'))
-          ? 'create'
-          : 'update';
+  let isDisposed = false;
+  const lastSeenSettingsHash: Record<string, string> = {};
 
-        onUpdate({
-          collection: isCadet ? 'cadets' : 'site_settings',
-          payload: response.payload,
-          action,
-        });
-      }
-    );
-    return unsubscribe;
-  } catch (err) {
-    console.warn('Appwrite Realtime subscription error:', err);
-    return () => {};
-  }
+  const pollSettings = async () => {
+    if (isDisposed) return;
+    try {
+      const settings = await fetchSiteSettingsFromAppwrite();
+      if (!settings || isDisposed) return;
+
+      Object.entries(settings).forEach(([key, value]) => {
+        const valStr = typeof value === 'string' ? value : JSON.stringify(value);
+        if (lastSeenSettingsHash[key] !== undefined && lastSeenSettingsHash[key] !== valStr) {
+          onUpdate({
+            collection: 'site_settings',
+            payload: { key, value },
+            action: 'update',
+          });
+        }
+        lastSeenSettingsHash[key] = valStr;
+      });
+    } catch {
+      // Quietly ignore network blips
+    }
+  };
+
+  // Seed initial hash quietly
+  fetchSiteSettingsFromAppwrite().then((settings) => {
+    if (settings && !isDisposed) {
+      Object.entries(settings).forEach(([key, value]) => {
+        lastSeenSettingsHash[key] = typeof value === 'string' ? value : JSON.stringify(value);
+      });
+    }
+  }).catch(() => {});
+
+  // Poll every 8 seconds in the background
+  const intervalId = setInterval(pollSettings, 8000);
+
+  return () => {
+    isDisposed = true;
+    clearInterval(intervalId);
+  };
 }
 
 /**
