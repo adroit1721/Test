@@ -869,46 +869,51 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   /**
    * Authoritative reconciled merge between local and remote cadet accounts.
-   * - Local edits are protected with a grace period so stale remote fetch never overwrites what was just saved.
+   * - Local edits made recently on THIS device are protected with a brief grace period (20s).
+   * - On all other devices (or after grace period), remote is the authoritative source of truth,
+   *   so edits made in Admin (rank, platoon, section, appointment, etc.) render immediately without reload!
    * - One-way approval protection: approved cadets are NEVER downgraded to pending.
-   * - Pending applicants registered from public view remain Pending Approval until approved by Admin.
-   * - Photos, passwords, contact details are preserved.
+   * - Heavy avatars and passwords stored locally are preserved if remote stripped them for payload size.
    */
   const reconcileCadet = (local: CadetUserAccount, remote: CadetUserAccount): CadetUserAccount => {
-    // If IDs are present and distinct, they are completely separate cadets and must never be merged
-    if (local.id && remote.id && String(local.id).trim() !== String(remote.id).trim()) {
+    // If IDs are present and distinct, and cadetNos are also distinct, they are completely separate
+    const localId = String(local.id || '').trim();
+    const remoteId = String(remote.id || '').trim();
+    const localNo = local.cadetNo ? String(local.cadetNo).trim().toUpperCase() : '';
+    const remoteNo = remote.cadetNo ? String(remote.cadetNo).trim().toUpperCase() : '';
+
+    if (localId && remoteId && localId !== remoteId && (!localNo || !remoteNo || localNo !== remoteNo)) {
       return local;
     }
 
-    const localId = String(local.id || '').trim();
-    const localNo = local.cadetNo ? String(local.cadetNo).trim().toUpperCase() : '';
     const lastWrite = Math.max(
       lastLocalWriteTimestamps.current[localId] || 0,
       lastLocalWriteTimestamps.current[localNo] || 0
     );
-    const isRecentlyWrittenLocally = Date.now() - lastWrite < 15 * 60 * 1000; // 15-minute write grace period
+    // 20-second write grace period for active local edits on this device only
+    const isRecentlyWrittenLocally = Date.now() - lastWrite < 20 * 1000;
 
     const isLocalApproved = local.isApproved === true || local.status === 'Active' || local.status === 'Alumni';
     const isRemoteApproved = remote.isApproved === true || remote.status === 'Active' || remote.status === 'Alumni';
 
-    // Start with remote, overlay local so local state fields prevail
-    const merged: CadetUserAccount = { ...remote, ...local };
+    // If recently written on this device, local overlay remote.
+    // Otherwise, remote is the authoritative source of truth: local is the base, remote overwrites!
+    const merged: CadetUserAccount = isRecentlyWrittenLocally
+      ? { ...remote, ...local }
+      : { ...local, ...remote };
 
-    // 1. APPROVAL LOGIC
-    if (isLocalApproved) {
+    // 1. APPROVAL & STATUS LOGIC
+    if (isLocalApproved || isRemoteApproved) {
       merged.isApproved = true;
       merged.status =
-        local.status && local.status !== 'Pending Approval'
-          ? local.status
-          : remote.status && remote.status !== 'Pending Approval'
-          ? remote.status
-          : 'Active';
-    } else if (isRemoteApproved) {
-      // Remote was approved (e.g. approved by admin on another tab/device)
-      merged.isApproved = true;
-      merged.status = remote.status || 'Active';
+        (isRecentlyWrittenLocally ? local.status : remote.status) ||
+        remote.status ||
+        local.status ||
+        'Active';
+      if (merged.status === 'Pending Approval') {
+        merged.status = 'Active';
+      }
     } else {
-      // Neither is approved -> must remain strictly Pending Approval
       merged.isApproved = false;
       merged.status = 'Pending Approval';
     }
@@ -931,10 +936,12 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (local.password) merged.password = local.password;
       if (local.avatarUrl) merged.avatarUrl = local.avatarUrl;
     } else {
-      // Baseline merging: preserve non-empty local fields if remote is empty
+      // Remote is authoritative for all fields (rank, section, platoon, name, etc.)
+      // Only preserve local values if remote field is empty/missing (e.g. stripped avatars or password)
       if (!merged.avatarUrl && local.avatarUrl) merged.avatarUrl = local.avatarUrl;
       if (!merged.password && local.password) merged.password = local.password;
       if (!merged.phone && local.phone) merged.phone = local.phone;
+      if (!merged.email && local.email) merged.email = local.email;
       if (!merged.name && local.name) merged.name = local.name;
       if (!merged.department && local.department) merged.department = local.department;
       if (!merged.batch && local.batch) merged.batch = local.batch;
@@ -966,16 +973,37 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       map.set(key, c);
     }
 
-    // Merge remote indexed primarily by unique ID to prevent collisions across applicants with the same roll
+    // Merge remote indexed primarily by unique ID or matching cadetNo
     for (const r of activeRemote) {
-      const key = r.id ? `id-${String(r.id).trim()}` : '';
+      const idKey = r.id ? `id-${String(r.id).trim()}` : '';
+      const noKey = r.cadetNo ? `no-${String(r.cadetNo).trim().toUpperCase()}` : '';
 
-      if (key && map.has(key)) {
-        const existing = map.get(key)!;
+      if (idKey && map.has(idKey)) {
+        const existing = map.get(idKey)!;
         const merged = reconcileCadet(existing, r);
-        map.set(key, merged);
-      } else if (key) {
-        map.set(key, r);
+        map.set(idKey, merged);
+      } else {
+        // Look up by cadetNo if not found by id
+        let matchedKey: string | null = null;
+        if (noKey) {
+          for (const [k, existing] of map.entries()) {
+            if (existing.cadetNo && `no-${String(existing.cadetNo).trim().toUpperCase()}` === noKey) {
+              matchedKey = k;
+              break;
+            }
+          }
+        }
+
+        if (matchedKey) {
+          const existing = map.get(matchedKey)!;
+          const merged = reconcileCadet(existing, r);
+          map.delete(matchedKey);
+          map.set(idKey || matchedKey, merged);
+        } else if (idKey) {
+          map.set(idKey, r);
+        } else if (noKey) {
+          map.set(noKey, r);
+        }
       }
     }
     return Array.from(map.values());
@@ -1230,7 +1258,13 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       window.addEventListener('online', handleReSync);
     }
 
+    // Periodic background sync every 4s to keep all views immediately updated
+    const periodicSync = setInterval(() => {
+      syncCadetsWithCloud();
+    }, 4000);
+
     return () => {
+      clearInterval(periodicSync);
       unsubscribeAppwrite();
       if (typeof window !== 'undefined') {
         window.removeEventListener('storage', handleStorageChange);
@@ -1997,6 +2031,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (targetId) lastLocalWriteTimestamps.current[targetId] = now;
     if (targetCadetNo) lastLocalWriteTimestamps.current[targetCadetNo] = now;
     if (origCadetNo) lastLocalWriteTimestamps.current[origCadetNo] = now;
+    lastLocalWriteTimestamps.current['ngdc_cadet_users_v8'] = now;
 
     // Find in current state
     const existing = cadetUsers.find((u) => {
@@ -2007,31 +2042,25 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return false;
     });
 
-    const updatedCadet: CadetUserAccount = existing
-      ? { ...existing, ...user }
-      : ({
-          id: targetId || `usr-${Date.now()}`,
-          cadetNo: targetCadetNo || `NGDC-${Math.floor(1000 + Math.random() * 9000)}`,
-          password: user.password || 'cadet123',
-          name: user.name || 'Cadet',
-          category: user.category || 'Male Platoon',
-          section: user.section || 'Section 01',
-          rank: user.rank || 'Cadet (CDT)',
-          status: user.status || 'Active',
-          cadetType: user.cadetType || 'Current',
-          isApproved: user.isApproved !== false,
-          gender: user.gender || 'Male',
-          appointment: user.appointment || 'Cadet',
-          platoon: user.platoon || user.category || 'Male Platoon',
-          batch: user.batch || 'Batch 24',
-          collegeId: user.collegeId || '',
-          department: user.department || '',
-          bloodGroup: user.bloodGroup || 'B+',
-          phone: user.phone || '',
-          email: user.email || '',
-          avatarUrl: user.avatarUrl || '',
-          ...user,
-        } as CadetUserAccount);
+    const category = (user.category || user.platoon || existing?.category || existing?.platoon || 'Male Platoon') as PlatoonCategory;
+    const platoon = (user.platoon || user.category || existing?.platoon || existing?.category || 'Male Platoon') as any;
+    const rank = user.rank || existing?.rank || 'Cadet (CDT)';
+    const status = user.status || existing?.status || 'Active';
+    const isApproved = user.isApproved !== undefined ? user.isApproved : (existing?.isApproved !== undefined ? existing.isApproved : true);
+
+    const updatedCadet: CadetUserAccount = {
+      ...(existing || {}),
+      id: targetId || existing?.id || `usr-${Date.now()}`,
+      cadetNo: targetCadetNo || origCadetNo || existing?.cadetNo || `NGDC-${Math.floor(1000 + Math.random() * 9000)}`,
+      password: user.password || existing?.password || 'cadet123',
+      name: user.name || existing?.name || 'Cadet',
+      ...user,
+      category,
+      platoon,
+      rank,
+      status,
+      isApproved,
+    } as CadetUserAccount;
 
     setCadetUsersAndSave((prev: CadetUserAccount[]) => {
       let found = false;
@@ -2043,7 +2072,15 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           (targetCadetNo && String(u.cadetNo || '').trim().toUpperCase() === targetCadetNo);
         if (!matches) return u;
         found = true;
-        return updatedCadet;
+        return {
+          ...u,
+          ...user,
+          category,
+          platoon,
+          rank,
+          status,
+          isApproved,
+        };
       });
 
       if (!found) {

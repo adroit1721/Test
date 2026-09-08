@@ -371,7 +371,7 @@ export async function upsertSiteSettingToAppwrite(key: string, value: any): Prom
 
 /**
  * Subscribe to Appwrite updates.
- * Uses resilient REST polling to synchronize remote updates (site_settings)
+ * Uses resilient REST polling to synchronize remote updates (site_settings & cadets collection)
  * without relying on Appwrite Cloud's unstable/restricted WebSocket realtime endpoints
  * which cause disconnect reconnect loops and InvalidStateError.
  */
@@ -382,40 +382,82 @@ export function subscribeToAppwriteUpdates(
 
   let isDisposed = false;
   const lastSeenSettingsHash: Record<string, string> = {};
+  const lastSeenCadetsHash: Record<string, string> = {};
 
-  const pollSettings = async () => {
+  const getCadetFingerprint = (c: CadetUserAccount) => {
+    return `${c.id}#${c.cadetNo}#${c.name}#${c.rank}#${c.category}#${c.platoon}#${c.section}#${c.status}#${c.isApproved}#${c.appointment}#${(c.avatarUrl || '').slice(0, 50)}`;
+  };
+
+  const pollCloud = async () => {
     if (isDisposed) return;
     try {
-      const settings = await fetchSiteSettingsFromAppwrite();
-      if (!settings || isDisposed) return;
+      const [settings, cadets] = await Promise.all([
+        fetchSiteSettingsFromAppwrite().catch(() => null),
+        fetchCadetsFromAppwrite().catch(() => null),
+      ]);
 
-      Object.entries(settings).forEach(([key, value]) => {
-        const valStr = typeof value === 'string' ? value : JSON.stringify(value);
-        if (lastSeenSettingsHash[key] !== undefined && lastSeenSettingsHash[key] !== valStr) {
-          onUpdate({
-            collection: 'site_settings',
-            payload: { key, value },
-            action: 'update',
-          });
-        }
-        lastSeenSettingsHash[key] = valStr;
-      });
+      if (isDisposed) return;
+
+      // 1. Sync site settings changes
+      if (settings) {
+        Object.entries(settings).forEach(([key, value]) => {
+          const valStr = typeof value === 'string' ? value : JSON.stringify(value);
+          if (lastSeenSettingsHash[key] !== undefined && lastSeenSettingsHash[key] !== valStr) {
+            onUpdate({
+              collection: 'site_settings',
+              payload: { key, value },
+              action: 'update',
+            });
+          }
+          lastSeenSettingsHash[key] = valStr;
+        });
+      }
+
+      // 2. Sync individual cadets changes
+      if (cadets && Array.isArray(cadets)) {
+        cadets.forEach((c) => {
+          if (!c || !c.id) return;
+          const fp = getCadetFingerprint(c);
+          if (lastSeenCadetsHash[c.id] !== undefined && lastSeenCadetsHash[c.id] !== fp) {
+            onUpdate({
+              collection: 'cadets',
+              payload: {
+                ...mapCadetToAppwriteDocument(c),
+                $id: c.id,
+                id: c.id,
+              },
+              action: 'update',
+            });
+          }
+          lastSeenCadetsHash[c.id] = fp;
+        });
+      }
     } catch {
       // Quietly ignore network blips
     }
   };
 
-  // Seed initial hash quietly
-  fetchSiteSettingsFromAppwrite().then((settings) => {
-    if (settings && !isDisposed) {
+  // Seed initial hashes quietly
+  Promise.all([
+    fetchSiteSettingsFromAppwrite().catch(() => null),
+    fetchCadetsFromAppwrite().catch(() => null),
+  ]).then(([settings, cadets]) => {
+    if (isDisposed) return;
+    if (settings) {
       Object.entries(settings).forEach(([key, value]) => {
         lastSeenSettingsHash[key] = typeof value === 'string' ? value : JSON.stringify(value);
       });
     }
+    if (cadets && Array.isArray(cadets)) {
+      cadets.forEach((c) => {
+        if (!c || !c.id) return;
+        lastSeenCadetsHash[c.id] = getCadetFingerprint(c);
+      });
+    }
   }).catch(() => {});
 
-  // Poll every 8 seconds in the background
-  const intervalId = setInterval(pollSettings, 8000);
+  // Poll every 3.5 seconds in the background for snappy cross-device updates
+  const intervalId = setInterval(pollCloud, 3500);
 
   return () => {
     isDisposed = true;

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAdminData } from '../context/AdminDataContext';
 import {
   Shield,
@@ -273,10 +273,21 @@ const HierarchyCadetCard: React.FC<HierarchyCardProps> = ({
 };
 
 export const CadetRankHierarchyTree: React.FC = () => {
-  const { cadetUsers } = useAdminData();
+  const { cadetUsers, syncCadetsWithCloud } = useAdminData();
 
   // Active Category: Strictly these 3 tabs as requested
   const [activeTab, setActiveTab] = useState<'Male Platoon' | 'Female Platoon' | 'Band Platoon'>('Male Platoon');
+
+  // Fast background synchronization when viewing hierarchy to render admin edits immediately
+  useEffect(() => {
+    if (typeof syncCadetsWithCloud === 'function') {
+      syncCadetsWithCloud();
+      const intervalId = setInterval(() => {
+        syncCadetsWithCloud();
+      }, 3500);
+      return () => clearInterval(intervalId);
+    }
+  }, [syncCadetsWithCloud]);
 
   // Zoom / View scale controls for easy navigation on all device sizes
   const [zoomScale, setZoomScale] = useState<number>(1);

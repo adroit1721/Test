@@ -314,8 +314,10 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
       additionalSkills: servingForm.additionalSkills.trim(),
       achievements: servingForm.achievements.trim(),
       avatarUrl: servingForm.avatarUrl.trim(),
-      status: editingCadet ? (editingCadet.status || (isAdmin ? 'Active' : 'Pending Approval')) : (isAdmin ? 'Active' : 'Pending Approval'),
-      isApproved: editingCadet ? editingCadet.isApproved : (isAdmin ? true : false),
+      status: editingCadet
+        ? (editingCadet.status && editingCadet.status !== 'Pending Approval' ? editingCadet.status : (isAdmin ? 'Active' : 'Pending Approval'))
+        : (isAdmin ? 'Active' : 'Pending Approval'),
+      isApproved: editingCadet ? (isAdmin ? true : editingCadet.isApproved) : (isAdmin ? true : false),
       collegeId: servingForm.cadetNo.trim().toUpperCase(),
     };
 
@@ -395,8 +397,10 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
       additionalSkills: exForm.additionalSkills.trim(),
       achievements: exForm.achievements.trim(),
       avatarUrl: exForm.avatarUrl.trim(),
-      status: editingCadet ? (editingCadet.status || (isAdmin ? 'Alumni' : 'Pending Approval')) : (isAdmin ? 'Alumni' : 'Pending Approval'),
-      isApproved: editingCadet ? editingCadet.isApproved : (isAdmin ? true : false),
+      status: editingCadet
+        ? (editingCadet.status && editingCadet.status !== 'Pending Approval' ? editingCadet.status : (isAdmin ? 'Alumni' : 'Pending Approval'))
+        : (isAdmin ? 'Alumni' : 'Pending Approval'),
+      isApproved: editingCadet ? (isAdmin ? true : editingCadet.isApproved) : (isAdmin ? true : false),
       collegeId: exForm.cadetNo.trim().toUpperCase(),
     };
 
