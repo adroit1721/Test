@@ -382,7 +382,7 @@ export const CadetDirectoryView: React.FC<CadetDirectoryViewProps> = ({ isCadetL
                     onClick={(e) => {
                       e.stopPropagation();
                       if (confirm(`Permanently delete cadet "${cadet.cadetNo} - ${cadet.name}" from database?`)) {
-                        deleteCadetUser(cadet.id);
+                        deleteCadetUser(cadet.id, cadet.cadetNo);
                       }
                     }}
                     className="p-1.5 rounded-xl text-red-500 hover:text-white hover:bg-red-600 bg-red-500/10 transition-colors cursor-pointer"
@@ -646,7 +646,7 @@ export const CadetDirectoryView: React.FC<CadetDirectoryViewProps> = ({ isCadetL
                         `Are you sure you want to permanently delete cadet "${selectedCadet.cadetNo} - ${selectedCadet.name}" from the database?`
                       )
                     ) {
-                      deleteCadetUser(selectedCadet.id);
+                      deleteCadetUser(selectedCadet.id, selectedCadet.cadetNo);
                       setSelectedCadet(null);
                     }
                   }}

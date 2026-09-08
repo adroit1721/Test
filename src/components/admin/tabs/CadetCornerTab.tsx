@@ -788,7 +788,7 @@ export const CadetCornerTab: React.FC = () => {
                     <button
                       onClick={() => {
                         if (confirm(`Delete cadet "${cadet.cadetNo} - ${cadet.name}"?`)) {
-                          deleteCadetUser(cadet.id);
+                          deleteCadetUser(cadet.id, cadet.cadetNo);
                         }
                       }}
                       className="p-2 rounded-xl text-red-600 hover:bg-red-500/10 cursor-pointer"
@@ -881,7 +881,7 @@ export const CadetCornerTab: React.FC = () => {
                     <button
                       onClick={() => {
                         if (confirm(`Reject and delete registration for "${appl.name}"?`)) {
-                          deleteCadetUser(appl.id);
+                          deleteCadetUser(appl.id, appl.cadetNo);
                         }
                       }}
                       className="p-2 rounded-xl text-red-600 hover:bg-red-500/10 cursor-pointer"
