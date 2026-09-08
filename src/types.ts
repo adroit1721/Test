@@ -150,6 +150,16 @@ export interface TrainingAnnouncement {
   hasRegistrationForm: boolean;
 }
 
+export interface PlatoonRoutineConfig {
+  isPublished: boolean;
+  title: string;
+  effectiveDate: string;
+  pdfUrl?: string;
+  fileName?: string;
+  instructions?: string;
+  updatedAt?: string;
+}
+
 // Dynamic Custom Form Builder
 export interface FormFieldConfig {
   id: string;
@@ -163,9 +173,11 @@ export interface FormFieldConfig {
 
 export interface CustomFormSubmission {
   id: string;
-  formId: string;
+  formId?: string;
+  formTitle?: string;
   submittedAt: string;
   data: Record<string, string>;
+  submittedData?: Record<string, string>;
 }
 
 // Cadet Rank Hierarchy in About Us

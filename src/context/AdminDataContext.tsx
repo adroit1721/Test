@@ -8,6 +8,7 @@ import {
   HonorEntryItem,
   HonorCategoryKey,
   TrainingAnnouncement,
+  PlatoonRoutineConfig,
   FormFieldConfig,
   CustomFormSubmission,
   CadetRankHierarchyItem,
@@ -212,8 +213,11 @@ const DEFAULT_TRAINING_ANNOUNCEMENTS: TrainingAnnouncement[] = [
   {
     id: 'tr-ann-1',
     title: 'Annual Battalion Winter Training Camp 2026',
+    activity: 'Annual Battalion Winter Training Camp 2026',
+    type: 'training',
     category: 'Camp',
     date: '15 Nov 2026 - 25 Nov 2026',
+    day: '15 Nov - 25 Nov 2026',
     time: '06:00 AM Daily',
     venue: 'Mahasthan Battalion Firing Range & Training Base, Bogura',
     instructor: 'Regiment Officers & Army Detachment BNCCOs',
@@ -225,8 +229,11 @@ const DEFAULT_TRAINING_ANNOUNCEMENTS: TrainingAnnouncement[] = [
   {
     id: 'tr-ann-2',
     title: 'Special Guard of Honor & Victory Day Rehearsal',
+    activity: 'Special Guard of Honor & Victory Day Rehearsal',
+    type: 'training',
     category: 'Parade',
     date: '10 Dec 2026',
+    day: '10 Dec 2026',
     time: '06:30 AM - 09:30 AM',
     venue: 'College Main Parade Ground, NGDC',
     instructor: 'PUO Md. Abdul Matin & CUO Hasan Mahmud',
@@ -238,8 +245,11 @@ const DEFAULT_TRAINING_ANNOUNCEMENTS: TrainingAnnouncement[] = [
   {
     id: 'tr-ann-3',
     title: 'Disaster Management & Fire Rescue Workshop',
+    activity: 'Disaster Management & Fire Rescue Workshop',
+    type: 'event',
     category: 'Workshop',
     date: '05 Oct 2026',
+    day: '05 Oct 2026',
     time: '10:00 AM - 01:30 PM',
     venue: 'Auditorium & Front Lawn, NGDC',
     instructor: 'Bangladesh Fire Service & Civil Defence Instructors',
@@ -249,6 +259,17 @@ const DEFAULT_TRAINING_ANNOUNCEMENTS: TrainingAnnouncement[] = [
     hasRegistrationForm: true,
   },
 ];
+
+// Default Platoon Routine & PDF Configuration
+const DEFAULT_PLATOON_ROUTINE_CONFIG: PlatoonRoutineConfig = {
+  isPublished: false,
+  title: '',
+  effectiveDate: '',
+  pdfUrl: '',
+  fileName: '',
+  instructions: '',
+  updatedAt: '',
+};
 
 // Default Training Form Fields
 const DEFAULT_TRAINING_FORM_FIELDS: FormFieldConfig[] = [
@@ -593,6 +614,8 @@ interface AdminDataContextType {
   setTrainingFormFields: React.Dispatch<React.SetStateAction<FormFieldConfig[]>>;
   trainingSubmissions: CustomFormSubmission[];
   addTrainingSubmission: (submission: Omit<CustomFormSubmission, 'id' | 'submittedAt'>) => void;
+  platoonRoutineConfig: PlatoonRoutineConfig;
+  updatePlatoonRoutineConfig: (config: Partial<PlatoonRoutineConfig>) => void;
 
   // 4. Notice & Blogs - PDF Notices & Blogs
   notices: NoticeItem[];
@@ -1091,8 +1114,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (settings['ngdc_about_sections']) setAboutSections(parseArray(settings['ngdc_about_sections']));
         if (settings['ngdc_cadet_ranks']) setCadetRanks(parseArray(settings['ngdc_cadet_ranks']));
         if (settings['ngdc_trainings']) setTrainingAnnouncements(parseArray(settings['ngdc_trainings']));
-        if (settings['ngdc_training_form_fields']) setTrainingFormFields(parseArray(settings['ngdc_training_form_fields']));
+        if (settings['ngdc_training_form_fields'] !== undefined) setTrainingFormFields(parseArray(settings['ngdc_training_form_fields']));
         if (settings['ngdc_training_submissions']) setTrainingSubmissions(parseArray(settings['ngdc_training_submissions']));
+        if (settings['ngdc_platoon_routine_config']) setPlatoonRoutineConfig(parseObject(settings['ngdc_platoon_routine_config'], DEFAULT_PLATOON_ROUTINE_CONFIG));
         if (settings['ngdc_notices']) setNotices(parseArray(settings['ngdc_notices']));
         if (settings['ngdc_blogs']) setBlogs(parseArray(settings['ngdc_blogs']));
         if (settings['ngdc_memories']) setMemories(parseArray(settings['ngdc_memories']));
@@ -1145,6 +1169,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       else if (key === 'ngdc_trainings') setTrainingAnnouncements(parseArray(val));
       else if (key === 'ngdc_training_form_fields') setTrainingFormFields(parseArray(val));
       else if (key === 'ngdc_training_submissions') setTrainingSubmissions(parseArray(val));
+      else if (key === 'ngdc_platoon_routine_config') setPlatoonRoutineConfig(parseObject(val, DEFAULT_PLATOON_ROUTINE_CONFIG));
       else if (key === 'ngdc_notices') setNotices(parseArray(val));
       else if (key === 'ngdc_blogs') setBlogs(parseArray(val));
       else if (key === 'ngdc_memories') setMemories(parseArray(val));
@@ -1430,6 +1455,14 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setTrainingSubmissions((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
       upsertSiteSetting('ngdc_training_submissions', next);
+      return next;
+    });
+  };
+
+  const setPlatoonRoutineConfigAndSave = (val: any) => {
+    setPlatoonRoutineConfig((prev: any) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSiteSetting('ngdc_platoon_routine_config', next);
       return next;
     });
   };
@@ -1778,12 +1811,30 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   const addTrainingAnnouncement = (ann: Omit<TrainingAnnouncement, 'id'>) => {
-    const newAnn: TrainingAnnouncement = { ...ann, id: `tr-${Date.now()}` };
+    const newAnn: TrainingAnnouncement = {
+      ...ann,
+      id: `tr-${Date.now()}`,
+      day: ann.day || ann.date,
+      activity: ann.activity || ann.title,
+      type: ann.type || 'training',
+    };
     setTrainingAnnouncementsAndSave((prev) => [newAnn, ...prev]);
   };
 
   const updateTrainingAnnouncement = (id: string, ann: Partial<TrainingAnnouncement>) => {
-    setTrainingAnnouncementsAndSave((prev) => prev.map((a) => (a.id === id ? { ...a, ...ann } : a)));
+    setTrainingAnnouncementsAndSave((prev) =>
+      prev.map((a) =>
+        a.id === id
+          ? {
+              ...a,
+              ...ann,
+              day: ann.day || ann.date || a.day || a.date,
+              activity: ann.activity || ann.title || a.activity || a.title,
+              type: ann.type || a.type || 'training',
+            }
+          : a
+      )
+    );
   };
 
   const deleteTrainingAnnouncement = (id: string) => {
@@ -1793,9 +1844,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [trainingFormFields, setTrainingFormFields] = useState<FormFieldConfig[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('ngdc_training_form_fields');
-      if (saved) {
-        const parsed = parseArray(saved);
-        if (parsed.length > 0) return parsed;
+      if (saved !== null) {
+        try {
+          return JSON.parse(saved);
+        } catch {}
       }
     }
     return DEFAULT_TRAINING_FORM_FIELDS;
@@ -1819,6 +1871,24 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
     setTrainingSubmissionsAndSave((prev) => [newSub, ...prev]);
     upsertSiteSetting('ngdc_training_submissions', [newSub, ...trainingSubmissions]);
+  };
+
+  const [platoonRoutineConfig, setPlatoonRoutineConfig] = useState<PlatoonRoutineConfig>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ngdc_platoon_routine_config');
+      if (saved) {
+        return parseObject(saved, DEFAULT_PLATOON_ROUTINE_CONFIG);
+      }
+    }
+    return DEFAULT_PLATOON_ROUTINE_CONFIG;
+  });
+
+  const updatePlatoonRoutineConfig = (config: Partial<PlatoonRoutineConfig>) => {
+    setPlatoonRoutineConfigAndSave((prev: PlatoonRoutineConfig) => ({
+      ...prev,
+      ...config,
+      updatedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    }));
   };
 
   // --- 4. Notice & Blogs ---
@@ -2708,9 +2778,11 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       updateTrainingAnnouncement,
       deleteTrainingAnnouncement,
       trainingFormFields,
-      setTrainingFormFields,
+      setTrainingFormFields: setTrainingFormFieldsAndSave,
       trainingSubmissions,
       addTrainingSubmission,
+      platoonRoutineConfig,
+      updatePlatoonRoutineConfig,
 
       notices,
       addNotice,
@@ -2811,6 +2883,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       trainingAnnouncements,
       trainingFormFields,
       trainingSubmissions,
+      platoonRoutineConfig,
       notices,
       blogs,
       memories,
