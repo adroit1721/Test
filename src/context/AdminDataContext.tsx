@@ -41,6 +41,16 @@ import {
   subscribeToSiteSettingsUpdates,
   upsertSiteSetting,
 } from '../utils/supabaseClient';
+import {
+  fetchCadetsFromAppwrite,
+  upsertCadetToAppwrite,
+  deleteCadetFromAppwrite,
+  isAppwriteConfigured,
+  fetchSiteSettingsFromAppwrite,
+  upsertSiteSettingToAppwrite,
+  subscribeToAppwriteUpdates,
+  mapAppwriteDocumentToCadet,
+} from '../utils/appwriteClient';
 
 // Initial default Honor Board entries in 3 categories
 const DEFAULT_HONOR_ENTRIES: HonorEntryItem[] = [
@@ -675,9 +685,11 @@ interface AdminDataContextType {
   updateRecruitmentSignatories: (config: Partial<RecruitmentSignatoriesConfig>) => void;
   resetRecruitmentSignatories: () => void;
 
-  // Supabase Postgres DB Sync
+  // Cloud Database Sync (Supabase & Appwrite Cloud)
   syncCadetsWithSupabase: () => Promise<void>;
+  syncCadetsWithCloud: () => Promise<void>;
   isSupabaseActive: boolean;
+  isAppwriteActive: boolean;
 
   // Cadet accounts alias & modules
   cadetAccounts: CadetUserAccount[];
@@ -912,17 +924,40 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         console.warn('localStorage save failed:', e);
       }
     }
+    // Write to Appwrite Cloud if configured
+    if (isAppwriteConfigured()) {
+      upsertSiteSettingToAppwrite(key, value).catch((err) => {
+        console.warn(`Appwrite setting sync error for ${key}:`, err);
+      });
+    }
     return upsertSiteSetting(key, value);
   };
 
   // --- Admin PIN (Default: 1721) ---
   
-  // --- Supabase Site Settings Initialization ---
+  // --- Site Settings Initialization (Appwrite Cloud & Supabase) ---
   useEffect(() => {
     async function loadSettings() {
-      const settings = await fetchSiteSettings();
+      // 1. Try Appwrite Cloud first
+      let settings: Record<string, any> | null = null;
+      if (isAppwriteConfigured()) {
+        try {
+          const appwriteRes = await fetchSiteSettingsFromAppwrite();
+          if (appwriteRes && Object.keys(appwriteRes).length > 0) {
+            settings = appwriteRes;
+          }
+        } catch (err) {
+          console.warn('Failed to load settings from Appwrite:', err);
+        }
+      }
+
+      // 2. Fall back to Supabase
+      if (!settings) {
+        settings = await fetchSiteSettings();
+      }
+
       if (settings) {
-        // Use plain setters here (NOT ...AndSave) so we do NOT write back to Supabase on load
+        // Use plain setters here (NOT ...AndSave) so we do NOT write back on load
         if (settings['ngdc_admin_service_pin']) setServicePin(settings['ngdc_admin_service_pin']);
         if (settings['ngdc_hero_slides']) setHeroSlides(parseArray(settings['ngdc_hero_slides']));
         if (settings['ngdc_principal_message']) setPrincipalMessage(parseExecutiveMessage(settings['ngdc_principal_message'], DEFAULT_PRINCIPAL_MESSAGE));
@@ -968,61 +1003,86 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     loadSettings();
 
-    const unsubscribeSettings = subscribeToSiteSettingsUpdates((payload) => {
+    const applySettingUpdate = (key: string, val: any) => {
+      const lastWrite = lastLocalWriteTimestamps.current[key];
+      if (lastWrite && Date.now() - lastWrite < 3500) {
+        return;
+      }
+      
+      if (key === 'ngdc_hero_slides') setHeroSlides(parseArray(val));
+      else if (key === 'ngdc_principal_message') setPrincipalMessage(parseExecutiveMessage(val, DEFAULT_PRINCIPAL_MESSAGE));
+      else if (key === 'ngdc_vice_principal_message') setVicePrincipalMessage(parseExecutiveMessage(val, DEFAULT_VICE_PRINCIPAL_MESSAGE));
+      else if (key === 'ngdc_about_overview') setAboutOverview(parseAboutOverview(val));
+      else if (key === 'ngdc_bncco1_message') setBncco1Message(parseExecutiveMessage(val, DEFAULT_BNCCO1_MESSAGE));
+      else if (key === 'ngdc_bncco2_message') setBncco2Message(parseExecutiveMessage(val, DEFAULT_BNCCO2_MESSAGE));
+      else if (key === 'ngdc_platoon_commander_message') setPlatoonCommanderMessage(parseExecutiveMessage(val, DEFAULT_PLATOON_COMMANDER_MESSAGE));
+      else if (key === 'ngdc_about_sections') setAboutSections(parseArray(val));
+      else if (key === 'ngdc_cadet_ranks') setCadetRanks(parseArray(val));
+      else if (key === 'ngdc_trainings') setTrainingAnnouncements(parseArray(val));
+      else if (key === 'ngdc_training_form_fields') setTrainingFormFields(parseArray(val));
+      else if (key === 'ngdc_training_submissions') setTrainingSubmissions(parseArray(val));
+      else if (key === 'ngdc_notices') setNotices(parseArray(val));
+      else if (key === 'ngdc_blogs') setBlogs(parseArray(val));
+      else if (key === 'ngdc_memories') setMemories(parseArray(val));
+      else if (key === 'ngdc_cadet_reg_fields') setCadetRegFields(parseArray(val));
+      else if (key === 'ngdc_deleted_cadets_tombstones') {
+        const remoteTombstones = parseArray(val);
+        remoteTombstones.forEach((x: string) => {
+          const str = String(x || '').trim();
+          if (str) {
+            deletedCadetTombstones.current.add(str);
+            deletedCadetTombstones.current.add(str.toUpperCase());
+          }
+        });
+      }
+      else if (key === 'ngdc_cadet_users_v8') {
+        const remoteCadets = parseArray(val);
+        setCadetUsers((prev) => mergeCadetLists(prev, remoteCadets));
+      }
+      else if (key === 'ngdc_honor_entries_3cat') setHonorEntries(parseArray(val));
+      else if (key === 'ngdc_contact_config') setContactConfig(parseObject(val, DEFAULT_CONTACT_CONFIG));
+      else if (key === 'ngdc_contact_messages') setContactMessages(parseArray(val));
+      else if (key === 'ngdc_recruitment_open') setIsRecruitmentOpen(val === 'true' || val === true);
+      else if (key === 'ngdc_recruitment_announcement') setRecruitmentAnnouncement(parseObject(val, DEFAULT_RECRUITMENT_ANNOUNCEMENT));
+      else if (key === 'ngdc_recruitment_title') setRecruitmentNoticeTitle(typeof val === 'string' ? val : String(val));
+      else if (key === 'ngdc_recruitment_form_fields') setRecruitmentFormFields(parseArray(val));
+      else if (key === 'ngdc_recruitment_applicants') setRecruitmentApplicants(parseArray(val));
+      else if (key === 'ngdc_recruitment_signatories') setRecruitmentSignatories(parseObject(val, DEFAULT_RECRUITMENT_SIGNATORIES));
+      else if (key === 'ngdc_footer_config') setFooterConfig(parseObject(val, DEFAULT_FOOTER_CONFIG));
+    };
+
+    // 1. Supabase Realtime subscription
+    const unsubscribeSupabase = subscribeToSiteSettingsUpdates((payload) => {
       if (payload.new && payload.new.id) {
-        const key = payload.new.id;
-        const val = payload.new.value;
-        
-        // Ignore broadcast echoes of changes initiated recently by this client (within 3500ms)
-        const lastWrite = lastLocalWriteTimestamps.current[key];
-        if (lastWrite && Date.now() - lastWrite < 3500) {
-          return;
-        }
-        
-        if (key === 'ngdc_hero_slides') setHeroSlides(parseArray(val));
-        else if (key === 'ngdc_principal_message') setPrincipalMessage(parseExecutiveMessage(val, DEFAULT_PRINCIPAL_MESSAGE));
-        else if (key === 'ngdc_vice_principal_message') setVicePrincipalMessage(parseExecutiveMessage(val, DEFAULT_VICE_PRINCIPAL_MESSAGE));
-        else if (key === 'ngdc_about_overview') setAboutOverview(parseAboutOverview(val));
-        else if (key === 'ngdc_bncco1_message') setBncco1Message(parseExecutiveMessage(val, DEFAULT_BNCCO1_MESSAGE));
-        else if (key === 'ngdc_bncco2_message') setBncco2Message(parseExecutiveMessage(val, DEFAULT_BNCCO2_MESSAGE));
-        else if (key === 'ngdc_platoon_commander_message') setPlatoonCommanderMessage(parseExecutiveMessage(val, DEFAULT_PLATOON_COMMANDER_MESSAGE));
-        else if (key === 'ngdc_about_sections') setAboutSections(parseArray(val));
-        else if (key === 'ngdc_cadet_ranks') setCadetRanks(parseArray(val));
-        else if (key === 'ngdc_trainings') setTrainingAnnouncements(parseArray(val));
-        else if (key === 'ngdc_training_form_fields') setTrainingFormFields(parseArray(val));
-        else if (key === 'ngdc_training_submissions') setTrainingSubmissions(parseArray(val));
-        else if (key === 'ngdc_notices') setNotices(parseArray(val));
-        else if (key === 'ngdc_blogs') setBlogs(parseArray(val));
-        else if (key === 'ngdc_memories') setMemories(parseArray(val));
-        else if (key === 'ngdc_cadet_reg_fields') setCadetRegFields(parseArray(val));
-        else if (key === 'ngdc_deleted_cadets_tombstones') {
-          const remoteTombstones = parseArray(val);
-          remoteTombstones.forEach((x: string) => {
-            const str = String(x || '').trim();
-            if (str) {
-              deletedCadetTombstones.current.add(str);
-              deletedCadetTombstones.current.add(str.toUpperCase());
-            }
-          });
-        }
-        else if (key === 'ngdc_cadet_users_v8') {
-          const remoteCadets = parseArray(val);
-          setCadetUsers((prev) => mergeCadetLists(prev, remoteCadets));
-        }
-        else if (key === 'ngdc_honor_entries_3cat') setHonorEntries(parseArray(val));
-        else if (key === 'ngdc_contact_config') setContactConfig(parseObject(val, DEFAULT_CONTACT_CONFIG));
-        else if (key === 'ngdc_contact_messages') setContactMessages(parseArray(val));
-        else if (key === 'ngdc_recruitment_open') setIsRecruitmentOpen(val === 'true' || val === true);
-        else if (key === 'ngdc_recruitment_announcement') setRecruitmentAnnouncement(parseObject(val, DEFAULT_RECRUITMENT_ANNOUNCEMENT));
-        else if (key === 'ngdc_recruitment_title') setRecruitmentNoticeTitle(typeof val === 'string' ? val : String(val));
-        else if (key === 'ngdc_recruitment_form_fields') setRecruitmentFormFields(parseArray(val));
-        else if (key === 'ngdc_recruitment_applicants') setRecruitmentApplicants(parseArray(val));
-        else if (key === 'ngdc_recruitment_signatories') setRecruitmentSignatories(parseObject(val, DEFAULT_RECRUITMENT_SIGNATORIES));
-        else if (key === 'ngdc_footer_config') setFooterConfig(parseObject(val, DEFAULT_FOOTER_CONFIG));
+        applySettingUpdate(payload.new.id, payload.new.value);
       }
     });
 
-    return () => { unsubscribeSettings(); };
+    // 2. Appwrite Realtime subscription
+    const unsubscribeAppwrite = subscribeToAppwriteUpdates((event) => {
+      if (event.collection === 'site_settings' && event.payload) {
+        const key = event.payload.key || event.payload.$id;
+        let val = event.payload.value;
+        try {
+          val = typeof val === 'string' ? JSON.parse(val) : val;
+        } catch {}
+        if (key) applySettingUpdate(key, val);
+      } else if (event.collection === 'cadets' && event.payload) {
+        if (event.action === 'delete') {
+          const docId = event.payload.$id;
+          const cadetNo = event.payload.cadet_no;
+          deleteCadetUser(docId, cadetNo);
+        } else {
+          const cadet = mapAppwriteDocumentToCadet(event.payload);
+          setCadetUsers((prev) => mergeCadetLists(prev, [cadet]));
+        }
+      }
+    });
+
+    return () => {
+      unsubscribeSupabase();
+      unsubscribeAppwrite();
+    };
   }, []);
 
   const [servicePin, setServicePin] = useState<string>(() => {
@@ -1672,13 +1732,36 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return DEFAULT_CADET_USERS; // Empty array [] by default - Admin inputs cadets
   });
 
-  // Supabase Postgres DB Live Sync for Cadets
-  const syncCadetsWithSupabase = async () => {
+  // Cloud Database Live Sync for Cadets (Appwrite Cloud & Supabase)
+  const syncCadetsWithCloud = async () => {
+    // 1. Try Appwrite Cloud first if configured
+    if (isAppwriteConfigured()) {
+      try {
+        const remote = await fetchCadetsFromAppwrite();
+        if (remote && Array.isArray(remote) && remote.length > 0) {
+          setCadetUsers((prev: CadetUserAccount[]) => {
+            const merged = mergeCadetLists(prev, remote);
+            if (typeof window !== 'undefined') {
+              try {
+                const str = JSON.stringify(merged);
+                localStorage.setItem('ngdc_cadet_users_v8', str);
+                localStorage.setItem('ngdc_cadet_users', str);
+              } catch {}
+            }
+            return merged;
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn('Error fetching cadets from Appwrite:', err);
+      }
+    }
+
+    // 2. Fall back to Supabase
     if (isSupabaseConfigured()) {
       try {
         const remote = await fetchCadetsFromSupabase();
         if (remote && Array.isArray(remote) && remote.length > 0) {
-          // Use plain setCadetUsers so we do NOT write back to Supabase and trigger echo egress loops
           setCadetUsers((prev: CadetUserAccount[]) => {
             const merged = mergeCadetLists(prev, remote);
             if (typeof window !== 'undefined') {
@@ -1697,8 +1780,10 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const syncCadetsWithSupabase = syncCadetsWithCloud;
+
   useEffect(() => {
-    syncCadetsWithSupabase();
+    syncCadetsWithCloud();
   }, []);
 
   const addCadetUser = (user: Omit<CadetUserAccount, 'id'>) => {
@@ -1719,7 +1804,14 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     setCadetUsersAndSave((prev) => [newUser, ...prev]);
 
-    // Asynchronously push to Supabase Postgres database if configured
+    // Push to Appwrite Cloud if configured
+    if (isAppwriteConfigured()) {
+      upsertCadetToAppwrite(newUser).catch((err) => {
+        console.warn('Failed to upsert cadet to Appwrite:', err);
+      });
+    }
+
+    // Push to Supabase Postgres database if configured
     upsertCadetToSupabase(newUser).catch((err) => {
       console.warn('Failed to upsert cadet to Supabase:', err);
     });
@@ -1730,7 +1822,13 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const updated = prev.map((u) => {
         if (u.id === id) {
           const merged = { ...u, ...user };
-          // Asynchronously update in Supabase Postgres database
+          // Push to Appwrite Cloud if configured
+          if (isAppwriteConfigured()) {
+            upsertCadetToAppwrite(merged).catch((err) => {
+              console.warn('Failed to update cadet in Appwrite:', err);
+            });
+          }
+          // Push to Supabase Postgres database if configured
           upsertCadetToSupabase(merged).catch((err) => {
             console.warn('Failed to update cadet in Supabase:', err);
           });
@@ -1779,10 +1877,17 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     }
 
-    // 5. Asynchronously persist to Supabase site_settings
+    // 5. Asynchronously persist to remote site_settings
     saveSettingWithTimestamp('ngdc_cadet_users_v8', remaining);
 
-    // 6. Delete from Supabase PostgreSQL cadets table (matching id or cadet_no)
+    // 6. Delete from Appwrite Cloud cadets collection
+    if (isAppwriteConfigured()) {
+      deleteCadetFromAppwrite(normalizedId, targetCadetNo).catch((err) => {
+        console.warn('Failed to delete cadet from Appwrite collection:', err);
+      });
+    }
+
+    // 7. Delete from Supabase PostgreSQL cadets table (matching id or cadet_no)
     deleteCadetFromSupabase(normalizedId, targetCadetNo).catch((err) => {
       console.warn('Failed to delete cadet from Supabase table:', err);
     });
@@ -1821,6 +1926,11 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
 
     if (approvedCadet) {
+      if (isAppwriteConfigured()) {
+        upsertCadetToAppwrite(approvedCadet).catch((err) => {
+          console.warn('Failed to upsert approved cadet to Appwrite:', err);
+        });
+      }
       upsertCadetToSupabase(approvedCadet).catch((err) => {
         console.warn('Failed to upsert approved cadet to Supabase:', err);
       });
@@ -1943,6 +2053,13 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     setCadetUsersAndSave((prev) => [newCadet, ...prev]);
+
+    // Upsert to Appwrite Cloud if configured
+    if (isAppwriteConfigured()) {
+      upsertCadetToAppwrite(newCadet).catch((err) => {
+        console.warn('Failed to upsert cadet to Appwrite:', err);
+      });
+    }
 
     // Upsert to Supabase if configured
     upsertCadetToSupabase(newCadet).catch((err) => {
@@ -2377,7 +2494,9 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         resetRecruitmentSignatories,
 
         syncCadetsWithSupabase,
+        syncCadetsWithCloud,
         isSupabaseActive: isSupabaseConfigured(),
+        isAppwriteActive: isAppwriteConfigured(),
 
         cadetAccounts: cadetUsers,
         addCadetAccount: (account: any) => addCadetUser(account),

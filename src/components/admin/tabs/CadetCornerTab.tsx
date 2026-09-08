@@ -5,6 +5,7 @@ import { CadetRegistrationForm } from '../../CadetRegistrationForm';
 import { CloudinaryUploader } from '../../common/CloudinaryUploader';
 import { DatabaseAndCloudSettingsModal } from '../DatabaseAndCloudSettingsModal';
 import { isSupabaseConfigured } from '../../../utils/supabaseClient';
+import { isAppwriteConfigured } from '../../../utils/appwriteClient';
 import { isCloudinaryConfigured } from '../../../utils/cloudinary';
 import { downloadCadetsFile } from '../../../utils/cadetExport';
 import {
@@ -56,7 +57,9 @@ export const CadetCornerTab: React.FC = () => {
     cadetRegFields,
     setCadetRegFields,
     syncCadetsWithSupabase,
+    syncCadetsWithCloud,
     isSupabaseActive,
+    isAppwriteActive,
     cadetRanks,
     addCadetRank,
     updateCadetRank,
@@ -291,24 +294,34 @@ export const CadetCornerTab: React.FC = () => {
               >
                 <Database className="w-3.5 h-3.5 text-[#6b5e10] dark:text-[#eedc82]" />
                 <span>DB & Cloud Storage Settings</span>
-                {isSupabaseConfigured() && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" title="Supabase Postgres Connected"></span>
+                {(isAppwriteConfigured() || isSupabaseConfigured()) && (
+                  <span
+                    className="w-2 h-2 rounded-full bg-emerald-500 inline-block"
+                    title={isAppwriteConfigured() ? 'Appwrite Cloud Connected' : 'Supabase Postgres Connected'}
+                  ></span>
                 )}
               </button>
 
               <button
                 onClick={async () => {
                   setIsSyncing(true);
-                  await syncCadetsWithSupabase();
+                  await syncCadetsWithCloud();
                   setTimeout(() => setIsSyncing(false), 600);
                 }}
                 disabled={isSyncing}
                 className="japandi-btn-secondary text-[11px] py-1.5 px-3 flex items-center gap-1.5 cursor-pointer font-medium"
-                title="Synchronize Cadets with Supabase Postgres"
+                title="Synchronize Cadets with Appwrite Cloud & Supabase"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-[#6b5e10]' : ''}`} />
-                <span>{isSyncing ? 'Syncing...' : 'Sync Supabase'}</span>
+                <span>{isSyncing ? 'Syncing...' : isAppwriteConfigured() ? 'Sync Appwrite' : 'Sync Cloud'}</span>
               </button>
+
+              {isAppwriteConfigured() && (
+                <span className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-800 dark:text-amber-300 font-semibold border border-amber-500/20 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-600" />
+                  <span>Appwrite Cloud</span>
+                </span>
+              )}
 
               <span className="text-[11px] px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 font-semibold border border-emerald-500/20 flex items-center gap-1">
                 <Cloud className="w-3 h-3" />
@@ -1384,11 +1397,11 @@ export const CadetCornerTab: React.FC = () => {
         </div>
       )}
 
-      {/* Database (Supabase Postgres) & Cloud (Cloudinary) Settings Modal */}
+      {/* Database (Appwrite Cloud & Supabase) & Cloudinary Settings Modal */}
       <DatabaseAndCloudSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
-        onSyncCadets={syncCadetsWithSupabase}
+        onSyncCadets={syncCadetsWithCloud}
       />
     </div>
   );
