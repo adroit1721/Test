@@ -1,6 +1,21 @@
 import React, { useState, useMemo } from 'react';
 import { useAdminData } from '../context/AdminDataContext';
-import { Shield, Music, User, ZoomIn, ZoomOut, RotateCcw, Award, Phone, X, AlertCircle } from 'lucide-react';
+import {
+  Shield,
+  Music,
+  User,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Award,
+  Phone,
+  X,
+  AlertCircle,
+  Crown,
+  Star,
+  ChevronRight,
+  Sparkles,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CadetUserAccount } from '../types';
 
@@ -30,14 +45,16 @@ interface HierarchyCardProps {
   defaultRole?: string;
   isOptional?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  tierLabel?: string;
   icon?: React.ReactNode;
+  isHighlighted?: boolean;
   onClick: (cadet: DisplayCadetNode | null) => void;
 }
 
 // =========================================================================
 // HIERARCHY CADET CARD COMPONENT
 // Styled to match the website's Japandi warm-neutral theme (cream / gold / charcoal)
-// Hierarchy order: 1. Nice Picture -> 2. Rank -> 3. Name -> 4. Subtitle/ID
+// Hierarchy order: 1. Picture -> 2. Rank -> 3. Name -> 4. Subtitle/ID
 // =========================================================================
 const HierarchyCadetCard: React.FC<HierarchyCardProps> = ({
   cadet,
@@ -45,7 +62,9 @@ const HierarchyCadetCard: React.FC<HierarchyCardProps> = ({
   defaultRole,
   isOptional = false,
   size = 'md',
+  tierLabel,
   icon,
+  isHighlighted = false,
   onClick,
 }) => {
   const isVacant = !cadet || cadet.isVacant;
@@ -57,6 +76,10 @@ const HierarchyCadetCard: React.FC<HierarchyCardProps> = ({
     ? 'Optional (Empty)'
     : 'Vacant (Empty)';
 
+  const highlightClasses = isHighlighted
+    ? 'ring-3 ring-[#eedc82] shadow-[0_0_18px_rgba(238,220,130,0.45)] scale-102 transition-transform'
+    : '';
+
   // 1. SMALL CARD (for Cadets inside sections)
   if (size === 'sm') {
     return (
@@ -65,7 +88,7 @@ const HierarchyCadetCard: React.FC<HierarchyCardProps> = ({
           if (cadet && !cadet.isVacant) onClick(cadet);
         }}
         title={!isVacant ? `${cadet.rank}: ${cadet.name} (${cadet.cadetNo || ''})` : `${defaultRank} (Unassigned)`}
-        className={`w-full p-2 rounded-xl text-center flex flex-col items-center justify-center select-none transition-all duration-200 ${
+        className={`w-full p-2 rounded-xl text-center flex flex-col items-center justify-center select-none transition-all duration-200 ${highlightClasses} ${
           !isVacant
             ? 'bg-gradient-to-b from-[#f3eadc] via-[#ede3d2] to-[#e3d5bf] dark:from-[#26231c] dark:via-[#201d17] dark:to-[#1a1813] border border-[#c1b196] dark:border-[#423b2e] shadow-[0_2px_6px_rgba(40,32,15,0.06)] hover:shadow-[0_6px_16px_-3px_rgba(107,94,16,0.22)] hover:border-[#d4c16a] hover:-translate-y-0.5 cursor-pointer group'
             : 'border border-dashed border-[#beaf95] dark:border-[#383329] bg-[#e6dcce]/40 dark:bg-[#161411]/60 text-[#7c7767] dark:text-[#8c8577] cursor-default'
@@ -120,19 +143,26 @@ const HierarchyCadetCard: React.FC<HierarchyCardProps> = ({
         onClick={() => {
           if (cadet && !cadet.isVacant) onClick(cadet);
         }}
-        className={`w-full max-w-[210px] p-2.5 rounded-2xl text-center flex flex-col items-center justify-center select-none transition-all duration-200 ${
+        className={`w-full max-w-[215px] p-2.5 rounded-2xl text-center flex flex-col items-center justify-center select-none transition-all duration-200 ${highlightClasses} ${
           !isVacant
             ? 'bg-gradient-to-b from-[#f4ebde] via-[#ede3d1] to-[#e2d4bd] dark:from-[#27231c] dark:via-[#211e17] dark:to-[#1a1813] border border-[#beaf93] dark:border-[#453d30] shadow-[0_3px_10px_rgba(40,32,15,0.08)] hover:shadow-[0_8px_20px_-4px_rgba(107,94,16,0.24)] hover:border-[#d4c16a] hover:-translate-y-0.5 cursor-pointer group'
             : 'border-2 border-dashed border-[#beaf95] dark:border-[#383329] bg-[#e6dcce]/50 dark:bg-[#161411]/60 text-[#7c7767] dark:text-[#8c8577] cursor-default'
         }`}
       >
+        {/* Tier indicator banner */}
+        {tierLabel && (
+          <span className="text-[8px] font-mono font-bold tracking-widest text-[#7c715b] dark:text-[#b8af9e] uppercase mb-1">
+            {tierLabel}
+          </span>
+        )}
+
         {/* Top Metallic Accent Pip */}
         {!isVacant && (
           <div className="w-6 h-0.5 bg-[#cbb34c]/70 dark:bg-[#eedc82]/50 rounded-full mb-1 opacity-80 group-hover:w-10 transition-all duration-200" />
         )}
 
         {/* 1. Picture */}
-        <div className="relative mb-2 shrink-0">
+        <div className="relative mb-1.5 shrink-0">
           {!isVacant && cadet?.avatarUrl ? (
             <img
               src={cadet.avatarUrl}
@@ -179,7 +209,7 @@ const HierarchyCadetCard: React.FC<HierarchyCardProps> = ({
       onClick={() => {
         if (cadet && !cadet.isVacant) onClick(cadet);
       }}
-      className={`w-full max-w-[240px] p-3 rounded-2xl text-center flex flex-col items-center justify-center select-none transition-all duration-200 ${
+      className={`w-full max-w-[245px] p-3 rounded-2xl text-center flex flex-col items-center justify-center select-none transition-all duration-200 ${highlightClasses} ${
         !isVacant
           ? 'bg-gradient-to-b from-[#f5ede0] via-[#ede3d1] to-[#e1d2ba] dark:from-[#29251e] dark:via-[#221f18] dark:to-[#1b1913] border-2 border-[#bfae91] dark:border-[#4a4233] shadow-[0_4px_14px_rgba(40,32,15,0.1)] hover:shadow-[0_12px_28px_-5px_rgba(107,94,16,0.26)] hover:border-[#eedc82] hover:-translate-y-1 cursor-pointer group'
           : isOptional
@@ -187,9 +217,17 @@ const HierarchyCadetCard: React.FC<HierarchyCardProps> = ({
           : 'border-2 border-dashed border-[#beaf95] dark:border-[#444036] bg-[#e6dcce]/50 dark:bg-[#181714]/60 text-[#7c7767] dark:text-[#8c8577] cursor-default'
       }`}
     >
+      {/* Tier indicator banner */}
+      {tierLabel && (
+        <span className="text-[9px] font-mono font-bold tracking-widest text-[#7c715b] dark:text-[#eedc82] uppercase mb-1 flex items-center gap-1">
+          {tierLabel.includes('01') ? <Crown className="w-3 h-3 text-[#6b5e10] dark:text-[#eedc82]" /> : <Shield className="w-3 h-3 text-[#6b5e10] dark:text-[#eedc82]" />}
+          <span>{tierLabel}</span>
+        </span>
+      )}
+
       {/* Top Command Gold Accent */}
       {!isVacant && (
-        <div className="w-10 h-1 bg-gradient-to-r from-transparent via-[#d8c360] to-transparent rounded-full mb-1.5 opacity-80 group-hover:w-16 transition-all duration-300" />
+        <div className="w-10 h-1 bg-gradient-to-r from-transparent via-[#d8c360] to-transparent rounded-full mb-1 opacity-80 group-hover:w-16 transition-all duration-300" />
       )}
 
       {/* 1. Picture */}
@@ -244,7 +282,10 @@ export const CadetRankHierarchyTree: React.FC = () => {
   const [zoomScale, setZoomScale] = useState<number>(1);
   const [selectedCadet, setSelectedCadet] = useState<DisplayCadetNode | null>(null);
 
-  // Active serving approved cadets from Admin Context (NO hardcoded demo fallbacks)
+  // Optional rank filter / highlight in chain of command
+  const [highlightedRank, setHighlightedRank] = useState<string | null>(null);
+
+  // Active serving approved cadets from Admin Context
   const servingCadets = useMemo(() => {
     return cadetUsers.filter((c) => {
       if (!c) return false;
@@ -266,18 +307,24 @@ export const CadetRankHierarchyTree: React.FC = () => {
 
   const isCUO = (rank?: string) => {
     const r = normalize(rank);
-    return r.includes('under officer') || r.includes('cuo');
+    return r.includes('under officer') || r.includes('cuo') || r.includes('c.u.o');
   };
 
   const isSergeant = (rank?: string) => {
     const r = normalize(rank);
     if (isCUO(r)) return false;
-    return r.includes('seargent') || r.includes('sergeant') || r.includes('sgt');
+    return (
+      r.includes('seargent') ||
+      r.includes('sergeant') ||
+      r.includes('sgt') ||
+      r.includes('csm') ||
+      r.includes('sergeant major')
+    );
   };
 
   const isLanceCorporal = (rank?: string) => {
     const r = normalize(rank);
-    return r.includes('lance') || r.includes('lcpl');
+    return r.includes('lance') || r.includes('lcpl') || r.includes('l.cpl') || r.includes('l/cpl');
   };
 
   const isCorporal = (rank?: string) => {
@@ -294,48 +341,137 @@ export const CadetRankHierarchyTree: React.FC = () => {
     return true;
   };
 
-  // Compute Active Platoon Hierarchy data dynamically matched strictly from the Cadet Users Database
-  const platoonData = useMemo(() => {
-    const platoonCadets = servingCadets.filter((c) => {
+  const getStandardRank = (rank?: string): string => {
+    if (isCUO(rank)) return 'Cadet Under Officer (CUO)';
+    if (isSergeant(rank)) return 'Cadet Seargent (SGT)';
+    if (isCorporal(rank)) return 'Cadet Corporal (CPL)';
+    if (isLanceCorporal(rank)) return 'Cadet Lance Corporal (LCPL)';
+    return 'Cadet (CDT)';
+  };
+
+  const getRankCode = (rank?: string): 'CUO' | 'SGT' | 'CPL' | 'LCPL' | 'CDT' => {
+    if (isCUO(rank)) return 'CUO';
+    if (isSergeant(rank)) return 'SGT';
+    if (isCorporal(rank)) return 'CPL';
+    if (isLanceCorporal(rank)) return 'LCPL';
+    return 'CDT';
+  };
+
+  // Cadets in current active platoon
+  const platoonCadets = useMemo(() => {
+    return servingCadets.filter((c) => {
       const cat = (c.category || c.platoon || '').toLowerCase();
       const sec = (c.section || '').toLowerCase();
-      if (activeTab === 'Male Platoon') {
-        return (
-          (!cat.includes('female') && (cat.includes('male') || c.gender === 'Male')) &&
-          !cat.includes('band') &&
-          !sec.includes('band')
-        );
+      const isBand = cat.includes('band') || sec.includes('band');
+
+      if (activeTab === 'Band Platoon') {
+        return isBand;
+      }
+      if (isBand) {
+        return false;
       }
       if (activeTab === 'Female Platoon') {
-        return (
-          cat.includes('female') ||
-          (c.gender === 'Female' && !cat.includes('band') && !sec.includes('band'))
-        );
+        return cat.includes('female') || c.gender === 'Female';
       }
-      if (activeTab === 'Band Platoon') {
-        return cat.includes('band') || sec.includes('band');
+      if (activeTab === 'Male Platoon') {
+        return (!cat.includes('female') && c.gender !== 'Female') || cat.includes('male') || c.gender === 'Male';
       }
       return false;
     });
+  }, [servingCadets, activeTab]);
 
+  // Chain of command rank stats for active platoon
+  const chainOfCommandStats = useMemo(() => {
+    const cuoCount = platoonCadets.filter((c) => isCUO(c.rank)).length;
+    const sgtCount = platoonCadets.filter((c) => isSergeant(c.rank)).length;
+    const cplCount = platoonCadets.filter((c) => isCorporal(c.rank)).length;
+    const lcplCount = platoonCadets.filter((c) => isLanceCorporal(c.rank)).length;
+    const cdtCount = platoonCadets.filter((c) => isCadet(c.rank)).length;
+
+    return [
+      {
+        code: 'CUO' as const,
+        order: '01',
+        title: 'Cadet Under Officer',
+        acronym: 'CUO',
+        roleDescription: 'Platoon Cadet Commander (Highest Cadet Rank)',
+        count: cuoCount,
+        color: 'from-[#ebd676] to-[#d4bc4d]',
+        insignia: '★',
+      },
+      {
+        code: 'SGT' as const,
+        order: '02',
+        title: 'Cadet Seargent',
+        acronym: 'SGT',
+        roleDescription: 'Platoon 2IC & Senior Drill Commander',
+        count: sgtCount,
+        color: 'from-[#e0cb67] to-[#c2aa3e]',
+        insignia: '▲▲▲',
+      },
+      {
+        code: 'CPL' as const,
+        order: '03',
+        title: 'Cadet Corporal',
+        acronym: 'CPL',
+        roleDescription: 'Section Commander (Section 01, 02, 03)',
+        count: cplCount,
+        color: 'from-[#d4bc4d] to-[#af982f]',
+        insignia: '▲▲',
+      },
+      {
+        code: 'LCPL' as const,
+        order: '04',
+        title: 'Cadet Lance Corporal',
+        acronym: 'LCPL',
+        roleDescription: 'Section 2IC & Assistant File Leader',
+        count: lcplCount,
+        color: 'from-[#c2aa3e] to-[#9c8423]',
+        insignia: '▲',
+      },
+      {
+        code: 'CDT' as const,
+        order: '05',
+        title: 'Cadet',
+        acronym: 'CDT',
+        roleDescription: 'Section Cadets, Riflemen & Instrumentalists',
+        count: cdtCount,
+        color: 'from-[#af982f] to-[#877218]',
+        insignia: '●',
+      },
+    ];
+  }, [platoonCadets]);
+
+  // Compute Active Platoon Hierarchy data dynamically matched strictly from the Cadet Users Database
+  const platoonData = useMemo(() => {
     const assignedIds = new Set<string>();
 
     // =========================================================================
     // 1. BAND PLATOON HIERARCHY
     // Structure:
+    // - Top CUO (if present)
     // - 01 Cadet Seargent (Head of Band Platoon)
-    // - 02 Corporals
+    // - 02 Corporals (Senior Band NCOs)
     // - 03 Lance Corporals (working for 3 sections)
     // - 09 Cadets divided into 3 sections (each section 3 cadets under 1 LCPL)
     // =========================================================================
     if (activeTab === 'Band Platoon') {
+      // Optional Band CUO
+      const bandCUOMatches = platoonCadets.filter((c) => isCUO(c.rank) && !assignedIds.has(c.id));
+      for (const m of bandCUOMatches) assignedIds.add(m.id);
+      const cuos: DisplayCadetNode[] = bandCUOMatches.map((m) => ({
+        ...m,
+        rank: getStandardRank(m.rank),
+        role: m.appointment || 'Band Platoon Senior Cadet Commander',
+      }));
+
       // 1. Cadet Seargent (01 Head of Band)
       const sgtCandidate = platoonCadets.find((c) => isSergeant(c.rank) && !assignedIds.has(c.id));
       if (sgtCandidate) assignedIds.add(sgtCandidate.id);
       const sergeant: DisplayCadetNode | null = sgtCandidate
         ? {
             ...sgtCandidate,
-            rank: sgtCandidate.rank || 'Cadet Seargent (SGT)',
+            rank: getStandardRank(sgtCandidate.rank),
             role: 'Head of Band Platoon',
           }
         : null;
@@ -346,8 +482,8 @@ export const CadetRankHierarchyTree: React.FC = () => {
       const corporal1: DisplayCadetNode | null = cplCandidate1
         ? {
             ...cplCandidate1,
-            rank: cplCandidate1.rank || 'Cadet Corporal (CPL)',
-            role: 'Band Section Senior NCO',
+            rank: getStandardRank(cplCandidate1.rank),
+            role: 'Band Section Senior NCO 01',
           }
         : null;
 
@@ -356,8 +492,8 @@ export const CadetRankHierarchyTree: React.FC = () => {
       const corporal2: DisplayCadetNode | null = cplCandidate2
         ? {
             ...cplCandidate2,
-            rank: cplCandidate2.rank || 'Cadet Corporal (CPL)',
-            role: 'Band Section Senior NCO',
+            rank: getStandardRank(cplCandidate2.rank),
+            role: 'Band Section Senior NCO 02',
           }
         : null;
 
@@ -369,23 +505,37 @@ export const CadetRankHierarchyTree: React.FC = () => {
       ];
 
       // Match LCPLs for each band section
-      const bandLCPLs = bandSectionsConfig.map((sec) => {
-        const matched =
-          platoonCadets.find(
-            (c) =>
-              isLanceCorporal(c.rank) &&
-              !assignedIds.has(c.id) &&
-              (c.section === sec.title || (c.section && c.section.includes(sec.secCode)))
-          ) || platoonCadets.find((c) => isLanceCorporal(c.rank) && !assignedIds.has(c.id));
-
-        if (matched) assignedIds.add(matched.id);
-        return matched
-          ? {
+      // Pass 1: Match by explicit section title or code
+      const bandLCPLs: (DisplayCadetNode | null)[] = [null, null, null];
+      bandSectionsConfig.forEach((sec, idx) => {
+        const matched = platoonCadets.find(
+          (c) =>
+            isLanceCorporal(c.rank) &&
+            !assignedIds.has(c.id) &&
+            (c.section === sec.title || (c.section && c.section.includes(sec.secCode)))
+        );
+        if (matched) {
+          assignedIds.add(matched.id);
+          bandLCPLs[idx] = {
+            ...matched,
+            rank: getStandardRank(matched.rank),
+            role: `${sec.title} Leader`,
+          };
+        }
+      });
+      // Pass 2: Fill remaining vacant band LCPL slots with unassigned LCPLs
+      bandSectionsConfig.forEach((sec, idx) => {
+        if (!bandLCPLs[idx]) {
+          const matched = platoonCadets.find((c) => isLanceCorporal(c.rank) && !assignedIds.has(c.id));
+          if (matched) {
+            assignedIds.add(matched.id);
+            bandLCPLs[idx] = {
               ...matched,
-              rank: matched.rank || 'Cadet Lance Corporal (LCPL)',
+              rank: getStandardRank(matched.rank),
               role: `${sec.title} Leader`,
-            }
-          : null;
+            };
+          }
+        }
       });
 
       // Cadets for Band
@@ -403,7 +553,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
           assignedIds.add(m.id);
           bandCadetBuckets[sIdx].push({
             ...m,
-            rank: m.rank || 'Cadet (CDT)',
+            rank: getStandardRank(m.rank),
             role: `${sec.title} Musician`,
           });
         }
@@ -421,7 +571,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
         }
         bandCadetBuckets[minIdx].push({
           ...m,
-          rank: m.rank || 'Cadet (CDT)',
+          rank: getStandardRank(m.rank),
           role: m.appointment || `${bandSectionsConfig[minIdx].title} Musician`,
         });
       }
@@ -453,6 +603,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
 
       return {
         isBand: true,
+        cuos,
         sergeant,
         corporals: [corporal1, corporal2],
         sections,
@@ -462,36 +613,32 @@ export const CadetRankHierarchyTree: React.FC = () => {
     // =========================================================================
     // 2. MALE & FEMALE PLATOON HIERARCHY
     // Structure:
-    // - Top: Optional CUO (Cadet Under Officer) - filled if present, blank if not
-    // - Cadet Seargent (Platoon 2IC)
+    // - Command Tier 1: Cadet Under Officer (CUO) - Top Platoon Commander
+    // - Command Tier 2: Cadet Seargent (SGT) - Platoon 2IC
     // - 3 Sections (Section 01, Section 02, Section 03)
     //   Each Section has:
-    //   - 1 Cadet Corporal (Section Commander)
-    //   - 1 Cadet Lance Corporal (Section 2IC)
-    //   - 8 Cadets (Vertically aligned)
+    //   - Command Tier 3: Cadet Corporal (CPL) - Section Commander
+    //   - Command Tier 4: Cadet Lance Corporal (LCPL) - Section 2IC
+    //   - Command Tier 5: 8 Cadets (CDT) in vertical alignment
     // =========================================================================
 
-    // CUO Matching (Optional rank)
-    const cuoMatch = platoonCadets.find((c) => isCUO(c.rank) && !assignedIds.has(c.id));
-    if (cuoMatch) assignedIds.add(cuoMatch.id);
-    const cuo: DisplayCadetNode | null = cuoMatch
-      ? {
-          ...cuoMatch,
-          rank: cuoMatch.rank || 'Cadet Under Officer (CUO)',
-          role: 'Platoon Cadet Commander',
-        }
-      : null;
+    // CUO Matching (Supports multiple CUOs or single/vacant)
+    const cuoMatches = platoonCadets.filter((c) => isCUO(c.rank) && !assignedIds.has(c.id));
+    for (const m of cuoMatches) assignedIds.add(m.id);
+    const cuos: DisplayCadetNode[] = cuoMatches.map((m) => ({
+      ...m,
+      rank: getStandardRank(m.rank),
+      role: m.appointment || 'Platoon Cadet Commander',
+    }));
 
     // Cadet Seargent Matching (Platoon 2IC)
-    const sgtMatch = platoonCadets.find((c) => isSergeant(c.rank) && !assignedIds.has(c.id));
-    if (sgtMatch) assignedIds.add(sgtMatch.id);
-    const sgt: DisplayCadetNode | null = sgtMatch
-      ? {
-          ...sgtMatch,
-          rank: sgtMatch.rank || 'Cadet Seargent (SGT)',
-          role: 'Platoon 2IC & Senior Drill Commander',
-        }
-      : null;
+    const sgtMatches = platoonCadets.filter((c) => isSergeant(c.rank) && !assignedIds.has(c.id));
+    for (const m of sgtMatches) assignedIds.add(m.id);
+    const sergeants: DisplayCadetNode[] = sgtMatches.map((m) => ({
+      ...m,
+      rank: getStandardRank(m.rank),
+      role: m.appointment || 'Platoon 2IC & Senior Drill Commander',
+    }));
 
     // 3 Sections Config
     const sectionsConfig = [
@@ -500,44 +647,72 @@ export const CadetRankHierarchyTree: React.FC = () => {
       { num: '03', title: 'Section 03' },
     ];
 
-    // For each section, find matching Corporal or first unassigned Corporal
-    const sectionCpls = sectionsConfig.map((sec) => {
-      const matched =
-        platoonCadets.find(
-          (c) =>
-            isCorporal(c.rank) &&
-            !assignedIds.has(c.id) &&
-            (c.section === sec.title || (c.section && c.section.includes(sec.num)))
-        ) || platoonCadets.find((c) => isCorporal(c.rank) && !assignedIds.has(c.id));
-
-      if (matched) assignedIds.add(matched.id);
-      return matched
-        ? {
-            ...matched,
-            rank: matched.rank || 'Cadet Corporal (CPL)',
-            role: `${sec.title} Commander`,
-          }
-        : null;
+    // Pass 1: Match Corporals with explicit section
+    const sectionCpls: (DisplayCadetNode | null)[] = [null, null, null];
+    sectionsConfig.forEach((sec, idx) => {
+      const matched = platoonCadets.find(
+        (c) =>
+          isCorporal(c.rank) &&
+          !assignedIds.has(c.id) &&
+          (c.section === sec.title || (c.section && c.section.includes(sec.num)))
+      );
+      if (matched) {
+        assignedIds.add(matched.id);
+        sectionCpls[idx] = {
+          ...matched,
+          rank: getStandardRank(matched.rank),
+          role: `${sec.title} Commander`,
+        };
+      }
     });
 
-    // For each section, find matching LCPL or first unassigned LCPL
-    const sectionLCPLs = sectionsConfig.map((sec) => {
-      const matched =
-        platoonCadets.find(
-          (c) =>
-            isLanceCorporal(c.rank) &&
-            !assignedIds.has(c.id) &&
-            (c.section === sec.title || (c.section && c.section.includes(sec.num)))
-        ) || platoonCadets.find((c) => isLanceCorporal(c.rank) && !assignedIds.has(c.id));
-
-      if (matched) assignedIds.add(matched.id);
-      return matched
-        ? {
+    // Pass 2: Fill remaining vacant section corporal slots with unassigned corporals
+    sectionsConfig.forEach((sec, idx) => {
+      if (!sectionCpls[idx]) {
+        const matched = platoonCadets.find((c) => isCorporal(c.rank) && !assignedIds.has(c.id));
+        if (matched) {
+          assignedIds.add(matched.id);
+          sectionCpls[idx] = {
             ...matched,
-            rank: matched.rank || 'Cadet Lance Corporal (LCPL)',
+            rank: getStandardRank(matched.rank),
+            role: `${sec.title} Commander`,
+          };
+        }
+      }
+    });
+
+    // Pass 1: Match LCPLs with explicit section
+    const sectionLCPLs: (DisplayCadetNode | null)[] = [null, null, null];
+    sectionsConfig.forEach((sec, idx) => {
+      const matched = platoonCadets.find(
+        (c) =>
+          isLanceCorporal(c.rank) &&
+          !assignedIds.has(c.id) &&
+          (c.section === sec.title || (c.section && c.section.includes(sec.num)))
+      );
+      if (matched) {
+        assignedIds.add(matched.id);
+        sectionLCPLs[idx] = {
+          ...matched,
+          rank: getStandardRank(matched.rank),
+          role: `${sec.title} 2IC`,
+        };
+      }
+    });
+
+    // Pass 2: Fill remaining vacant section LCPL slots with unassigned LCPLs
+    sectionsConfig.forEach((sec, idx) => {
+      if (!sectionLCPLs[idx]) {
+        const matched = platoonCadets.find((c) => isLanceCorporal(c.rank) && !assignedIds.has(c.id));
+        if (matched) {
+          assignedIds.add(matched.id);
+          sectionLCPLs[idx] = {
+            ...matched,
+            rank: getStandardRank(matched.rank),
             role: `${sec.title} 2IC`,
-          }
-        : null;
+          };
+        }
+      }
     });
 
     // Distribute Cadets
@@ -555,13 +730,13 @@ export const CadetRankHierarchyTree: React.FC = () => {
         assignedIds.add(m.id);
         sectionCadetBuckets[sIdx].push({
           ...m,
-          rank: m.rank || 'Cadet (CDT)',
+          rank: getStandardRank(m.rank),
           role: `${sec.title} Cadet`,
         });
       }
     });
 
-    // 2nd pass: distribute ALL remaining unassigned cadets into sections
+    // 2nd pass: distribute ALL remaining unassigned cadets into sections with fewest cadets
     const remainingCadets = platoonCadets.filter((c) => !assignedIds.has(c.id));
     for (const m of remainingCadets) {
       assignedIds.add(m.id);
@@ -573,7 +748,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
       }
       sectionCadetBuckets[minIdx].push({
         ...m,
-        rank: m.rank || 'Cadet (CDT)',
+        rank: getStandardRank(m.rank),
         role: m.appointment || `${sectionsConfig[minIdx].title} Cadet`,
       });
     }
@@ -607,38 +782,93 @@ export const CadetRankHierarchyTree: React.FC = () => {
 
     return {
       isBand: false,
-      cuo,
-      sgt,
+      cuos,
+      sergeants,
       sections,
     };
-  }, [servingCadets, activeTab]);
-
-  const totalServingInPlatoon = useMemo(() => {
-    return servingCadets.filter((c) => {
-      const cat = (c.category || c.platoon || '').toLowerCase();
-      const sec = (c.section || '').toLowerCase();
-      if (activeTab === 'Male Platoon') {
-        return (
-          (!cat.includes('female') && (cat.includes('male') || c.gender === 'Male')) &&
-          !cat.includes('band') &&
-          !sec.includes('band')
-        );
-      }
-      if (activeTab === 'Female Platoon') {
-        return (
-          cat.includes('female') ||
-          (c.gender === 'Female' && !cat.includes('band') && !sec.includes('band'))
-        );
-      }
-      if (activeTab === 'Band Platoon') {
-        return cat.includes('band') || sec.includes('band');
-      }
-      return false;
-    }).length;
-  }, [servingCadets, activeTab]);
+  }, [platoonCadets, activeTab]);
 
   return (
     <div className="space-y-6 w-full">
+      {/* =========================================================================
+          OFFICIAL 5-RANK CHAIN OF COMMAND SENIORITY BAR
+          Displays all 5 official BNCC Cadet ranks in exact order of command
+          (CUO -> SGT -> CPL -> LCPL -> CDT) with live counts and rank duties
+          ========================================================================= */}
+      <div className="bg-[#f8f4eb] dark:bg-[#181613] p-4 sm:p-5 rounded-3xl border border-[#cdc6b3]/70 dark:border-[#38352d] shadow-2xs space-y-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2 border-b border-[#cdc6b3]/50 dark:border-[#302d25]">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-xl bg-[#eedc82]/40 dark:bg-[#eedc82]/20 text-[#6b5e10] dark:text-[#eedc82]">
+              <Crown className="w-4 h-4" />
+            </span>
+            <div>
+              <h3 className="text-sm sm:text-base font-extrabold text-[#1c1c18] dark:text-[#fcfbf7]">
+                Official Cadet Rank Hierarchy & Chain of Command
+              </h3>
+              <p className="text-[11px] text-[#695c4e] dark:text-[#aca596]">
+                Descending military order of command for currently serving BNCC cadets. Click any rank to highlight.
+              </p>
+            </div>
+          </div>
+          {highlightedRank && (
+            <button
+              onClick={() => setHighlightedRank(null)}
+              className="text-[11px] font-bold text-[#6b5e10] dark:text-[#eedc82] hover:underline cursor-pointer flex items-center gap-1"
+            >
+              <span>Clear highlight</span>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* 5 Ranks Sequential Flow */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+          {chainOfCommandStats.map((rankItem, idx) => {
+            const isSelected = highlightedRank === rankItem.code;
+            return (
+              <button
+                key={rankItem.code}
+                type="button"
+                onClick={() => setHighlightedRank(isSelected ? null : rankItem.code)}
+                className={`p-2.5 rounded-2xl text-left border transition-all duration-200 cursor-pointer relative group ${
+                  isSelected
+                    ? 'bg-[#eedc82]/25 dark:bg-[#eedc82]/15 border-[#d4bc4d] dark:border-[#eedc82] shadow-xs'
+                    : 'bg-[#fbf9f4] dark:bg-[#1f1d19] border-[#cdc6b3]/60 dark:border-[#36332a] hover:border-[#d4bc4d]'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1 mb-1.5">
+                  <span className="text-[9px] font-mono font-black text-[#8c826e] dark:text-[#999] uppercase tracking-wider">
+                    Tier {rankItem.order}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#eedc82]/40 dark:bg-[#eedc82]/20 text-[#504205] dark:text-[#eedc82]">
+                    {rankItem.count} Serving
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#1c1c18] to-[#3a352a] text-[#eedc82] flex items-center justify-center font-bold text-[10px] shrink-0 shadow-2xs">
+                    {rankItem.code}
+                  </span>
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-black text-[#1c1c18] dark:text-[#fcfbf7] truncate">
+                      {rankItem.acronym}
+                    </h4>
+                  </div>
+                </div>
+
+                <p className="text-[10px] font-medium text-[#5a5242] dark:text-[#aba496] leading-tight mt-1 line-clamp-1">
+                  {rankItem.title}
+                </p>
+
+                <p className="text-[9px] text-[#7a7161] dark:text-[#888] leading-tight mt-1 line-clamp-2">
+                  {rankItem.roleDescription}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* =========================================================================
           TAB NAVIGATION & CONTROLS
           Strictly 3 tabs as requested: Male Platoon, Female Platoon, Band Platoon
@@ -669,7 +899,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
         {/* View Details & Zoom Controls */}
         <div className="flex items-center gap-2 text-xs w-full sm:w-auto justify-between sm:justify-end">
           <span className="text-[11px] text-[#7c7767] dark:text-[#aca596] hidden md:inline">
-            Click any active card to view profile
+            Click any cadet card to view official record
           </span>
           <div className="flex items-center gap-1 bg-[#f6f3ed] dark:bg-[#141311] p-1 rounded-xl border border-[#cdc6b3]/50 dark:border-[#38352d]">
             <button
@@ -701,11 +931,11 @@ export const CadetRankHierarchyTree: React.FC = () => {
       </div>
 
       {/* Notice if Platoon currently has 0 registered cadets */}
-      {totalServingInPlatoon === 0 && (
+      {platoonCadets.length === 0 && (
         <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-[#f6f3ed] dark:bg-[#1e1d19] border border-dashed border-[#cdc6b3] dark:border-[#423e35] text-xs text-[#504537] dark:text-[#aca596]">
           <AlertCircle className="w-4 h-4 text-[#6b5e10] dark:text-[#eedc82] shrink-0" />
           <span>
-            <strong>Cadet Directory is clean & empty:</strong> Slots below are displayed as unassigned. Platoon administrators can register and assign cadets under <em>Admin &gt; Cadet Corner</em> to populate this hierarchy.
+            <strong>Cadet Directory is ready:</strong> The schematic hierarchy for {activeTab} is shown below with vacant slots. When administrators register or approve cadets under <em>Admin &gt; Cadet Corner</em>, they immediately appear in their exact chain of command.
           </span>
         </div>
       )}
@@ -736,7 +966,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
         {/* Watermark Command Indicator */}
         <div className="absolute top-3.5 right-6 hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#f4eee3]/80 dark:bg-[#1e1d19]/80 border border-[#cdc6b3]/70 dark:border-[#38352d] text-[9px] font-mono font-bold uppercase tracking-wider text-[#695c4e] dark:text-[#eedc82] backdrop-blur-xs select-none pointer-events-none">
           <span className="w-1.5 h-1.5 rounded-full bg-[#6b5e10] dark:bg-[#eedc82] animate-pulse" />
-          <span>Cadet Command Hierarchy</span>
+          <span>Cadet Command Chain (5 Ranks)</span>
         </div>
 
         {/* Scrollable Canvas container */}
@@ -747,36 +977,87 @@ export const CadetRankHierarchyTree: React.FC = () => {
           >
             {/* ===================================================================
                BRANCH A: MALE & FEMALE PLATOONS
-               Top CUO -> Cadet Seargent -> 3 Sections (CPL -> LCPL -> 8 Cadets vertically)
+               Tier 1: CUO -> Tier 2: SGT -> Distribution Bar -> 3 Sections:
+               Tier 3: CPL -> Tier 4: LCPL -> Tier 5: 8 Cadets
                =================================================================== */}
             {!platoonData.isBand ? (
               <div className="flex flex-col items-center">
-                {/* 1. TOP LEVEL: CUO (Optional Rank) */}
+                {/* 1. TOP LEVEL: CADET UNDER OFFICER (CUO) - TIER 01 */}
                 <div className="flex flex-col items-center">
-                  <HierarchyCadetCard
-                    cadet={platoonData.cuo}
-                    defaultRank="Cadet Under Officer/CUO"
-                    defaultRole="Platoon Cadet Commander"
-                    isOptional={true}
-                    size="lg"
-                    icon={<Shield className="w-5 h-5 text-[#6b5e10] dark:text-[#eedc82]" />}
-                    onClick={(c) => setSelectedCadet(c)}
-                  />
+                  <div className="mb-2 px-3.5 py-0.5 rounded-full bg-[#eedc82]/30 dark:bg-[#eedc82]/15 border border-[#eedc82]/60 text-[10px] font-black text-[#6b5e10] dark:text-[#eedc82] uppercase tracking-wider flex items-center gap-1">
+                    <Crown className="w-3 h-3" />
+                    <span>Command Tier 01 • Cadet Under Officer (CUO)</span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center gap-4">
+                    {platoonData.cuos.length > 0 ? (
+                      platoonData.cuos.map((cuoCadet, idx) => (
+                        <HierarchyCadetCard
+                          key={cuoCadet.id ? `cuo-${cuoCadet.id}` : `cuo-slot-${idx}`}
+                          cadet={cuoCadet}
+                          defaultRank="Cadet Under Officer (CUO)"
+                          defaultRole="Platoon Cadet Commander"
+                          tierLabel="Tier 01 • CUO"
+                          size="lg"
+                          isHighlighted={highlightedRank === 'CUO'}
+                          icon={<Crown className="w-5 h-5 text-[#6b5e10] dark:text-[#eedc82]" />}
+                          onClick={(c) => setSelectedCadet(c)}
+                        />
+                      ))
+                    ) : (
+                      <HierarchyCadetCard
+                        cadet={null}
+                        defaultRank="Cadet Under Officer (CUO)"
+                        defaultRole="Platoon Cadet Commander"
+                        tierLabel="Tier 01 • CUO"
+                        isOptional={true}
+                        size="lg"
+                        isHighlighted={highlightedRank === 'CUO'}
+                        icon={<Crown className="w-5 h-5 text-[#6b5e10] dark:text-[#eedc82]" />}
+                        onClick={(c) => setSelectedCadet(c)}
+                      />
+                    )}
+                  </div>
 
                   {/* Vertical Connector: CUO to Cadet Seargent */}
                   <div className="w-[2px] h-6 bg-[#b8b09d] dark:bg-[#4d483c]" />
                 </div>
 
-                {/* 2. SECOND LEVEL: CADET SEARGENT */}
+                {/* 2. SECOND LEVEL: CADET SEARGENT (SGT) - TIER 02 */}
                 <div className="flex flex-col items-center">
-                  <HierarchyCadetCard
-                    cadet={platoonData.sgt}
-                    defaultRank="Cadet Seargent"
-                    defaultRole="Platoon 2IC"
-                    size="lg"
-                    icon={<Shield className="w-5 h-5 text-[#6b5e10] dark:text-[#eedc82]" />}
-                    onClick={(c) => setSelectedCadet(c)}
-                  />
+                  <div className="mb-2 px-3.5 py-0.5 rounded-full bg-[#e8d98d]/30 dark:bg-[#e8d98d]/15 border border-[#eedc82]/50 text-[10px] font-black text-[#6b5e10] dark:text-[#eedc82] uppercase tracking-wider flex items-center gap-1">
+                    <Shield className="w-3 h-3" />
+                    <span>Command Tier 02 • Cadet Seargent (SGT)</span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center gap-4">
+                    {platoonData.sergeants.length > 0 ? (
+                      platoonData.sergeants.map((sgtCadet, idx) => (
+                        <HierarchyCadetCard
+                          key={sgtCadet.id ? `sgt-${sgtCadet.id}` : `sgt-slot-${idx}`}
+                          cadet={sgtCadet}
+                          defaultRank="Cadet Seargent (SGT)"
+                          defaultRole="Platoon 2IC & Senior Drill Commander"
+                          tierLabel="Tier 02 • SGT"
+                          size="lg"
+                          isHighlighted={highlightedRank === 'SGT'}
+                          icon={<Shield className="w-5 h-5 text-[#6b5e10] dark:text-[#eedc82]" />}
+                          onClick={(c) => setSelectedCadet(c)}
+                        />
+                      ))
+                    ) : (
+                      <HierarchyCadetCard
+                        cadet={null}
+                        defaultRank="Cadet Seargent (SGT)"
+                        defaultRole="Platoon 2IC & Senior Drill Commander"
+                        tierLabel="Tier 02 • SGT"
+                        size="lg"
+                        isHighlighted={highlightedRank === 'SGT'}
+                        icon={<Shield className="w-5 h-5 text-[#6b5e10] dark:text-[#eedc82]" />}
+                        onClick={(c) => setSelectedCadet(c)}
+                      />
+                    )}
+                  </div>
 
                   {/* Vertical Connector: Cadet Seargent to 3-Section Crossbar */}
                   <div className="w-[2px] h-6 bg-[#b8b09d] dark:bg-[#4d483c]" />
@@ -799,34 +1080,38 @@ export const CadetRankHierarchyTree: React.FC = () => {
                           {sec.title}
                         </div>
 
-                        {/* LEVEL A: CADET CORPORAL */}
+                        {/* TIER 03: CADET CORPORAL (CPL) - SECTION COMMANDER */}
                         <HierarchyCadetCard
                           cadet={sec.cpl}
-                          defaultRank="Cadet Corporal"
+                          defaultRank="Cadet Corporal (CPL)"
                           defaultRole="Section Commander"
+                          tierLabel="Tier 03 • CPL"
                           size="md"
+                          isHighlighted={highlightedRank === 'CPL'}
                           onClick={(c) => setSelectedCadet(c)}
                         />
 
                         {/* Vertical Connector Line: Corporal to Lance Corporal */}
                         <div className="w-[2px] h-5 bg-[#b8b09d] dark:bg-[#4d483c]" />
 
-                        {/* LEVEL B: CADET LANCE CORPORAL */}
+                        {/* TIER 04: CADET LANCE CORPORAL (LCPL) - SECTION 2IC */}
                         <HierarchyCadetCard
                           cadet={sec.lcpl}
-                          defaultRank="Cadet Lance Corporal"
+                          defaultRank="Cadet Lance Corporal (LCPL)"
                           defaultRole="Section 2IC"
+                          tierLabel="Tier 04 • LCPL"
                           size="md"
+                          isHighlighted={highlightedRank === 'LCPL'}
                           onClick={(c) => setSelectedCadet(c)}
                         />
 
                         {/* Vertical Connector Line: Lance Corporal to Cadets Box */}
                         <div className="w-[2px] h-5 bg-[#b8b09d] dark:bg-[#4d483c]" />
 
-                        {/* LEVEL C: 8 CADETS - VERTICAL ALIGNMENT (2 Columns x 4 Rows for clean fit) */}
+                        {/* TIER 05: 8 CADETS (CDT) - SECTION CADETS (2 Columns x 4 Rows) */}
                         <div className="w-full p-2.5 rounded-2xl bg-[#e6ddcd]/85 dark:bg-[#181612]/90 border border-[#beaf91] dark:border-[#3c362a] shadow-xs backdrop-blur-xs">
                           <div className="text-[10px] font-black text-[#5d5242] dark:text-[#aca596] uppercase tracking-wider text-center mb-2 pb-1.5 border-b border-[#beaf91]/60 dark:border-[#38352d]">
-                            Section Cadets (08)
+                            Command Tier 05 • Section Cadets (08)
                           </div>
 
                           {/* 2-Column Vertical Grid */}
@@ -835,9 +1120,10 @@ export const CadetRankHierarchyTree: React.FC = () => {
                               <HierarchyCadetCard
                                 key={cadet?.id ? `sec-${sec.num}-cdt-${cadet.id}-${cdtIdx}` : `sec-${sec.num}-empty-${cdtIdx}`}
                                 cadet={cadet}
-                                defaultRank="Cadet"
-                                defaultRole={`Cadet ${cdtIdx + 1}`}
+                                defaultRank="Cadet (CDT)"
+                                defaultRole={`Rifleman ${cdtIdx + 1}`}
                                 size="sm"
+                                isHighlighted={highlightedRank === 'CDT'}
                                 onClick={(c) => setSelectedCadet(c)}
                               />
                             ))}
@@ -852,23 +1138,55 @@ export const CadetRankHierarchyTree: React.FC = () => {
               /* ===================================================================
                  BRANCH B: BAND PLATOON HIERARCHY
                  Structure:
+                 - Band CUO (if present)
                  - 01 Cadet Seargent (Head of Band Platoon)
-                 - Under him: 02 Corporals (Senior NCOs)
-                 - Under them: 03 Lance Corporals (for 3 sections)
-                 - Under each Lance Corporal: 03 Cadets in vertical alignment
+                 - 02 Corporals (Senior NCOs)
+                 - 03 Lance Corporals (for 3 sections)
+                 - 09 Cadets (3 per section)
                  =================================================================== */
               <div className="flex flex-col items-center">
-                {/* 1. BAND HEAD: 01 CADET SEARGENT */}
+                {/* Optional Band CUO */}
+                {platoonData.cuos && platoonData.cuos.length > 0 && (
+                  <div className="flex flex-col items-center mb-2">
+                    <div className="mb-2 px-3.5 py-0.5 rounded-full bg-[#eedc82]/30 dark:bg-[#eedc82]/15 border border-[#eedc82]/60 text-[10px] font-black text-[#6b5e10] dark:text-[#eedc82] uppercase tracking-wider flex items-center gap-1">
+                      <Crown className="w-3 h-3" />
+                      <span>Command Tier 01 • Cadet Under Officer (CUO)</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center gap-4">
+                      {platoonData.cuos.map((cuoCadet, idx) => (
+                        <HierarchyCadetCard
+                          key={cuoCadet.id ? `band-cuo-${cuoCadet.id}` : `band-cuo-slot-${idx}`}
+                          cadet={cuoCadet}
+                          defaultRank="Cadet Under Officer (CUO)"
+                          defaultRole="Band Platoon Senior Commander"
+                          tierLabel="Tier 01 • CUO"
+                          size="lg"
+                          isHighlighted={highlightedRank === 'CUO'}
+                          icon={<Crown className="w-5 h-5 text-[#6b5e10] dark:text-[#eedc82]" />}
+                          onClick={(c) => setSelectedCadet(c)}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="w-[2px] h-6 bg-[#b8b09d] dark:bg-[#4d483c]" />
+                  </div>
+                )}
+
+                {/* 1. BAND HEAD: 01 CADET SEARGENT (SGT) - TIER 02 */}
                 <div className="flex flex-col items-center">
-                  <div className="mb-2 px-3.5 py-0.5 rounded-full bg-[#eedc82]/30 dark:bg-[#eedc82]/15 border border-[#eedc82]/60 text-[10px] font-black text-[#6b5e10] dark:text-[#eedc82] uppercase tracking-wider">
-                    Band Platoon Commander
+                  <div className="mb-2 px-3.5 py-0.5 rounded-full bg-[#eedc82]/30 dark:bg-[#eedc82]/15 border border-[#eedc82]/60 text-[10px] font-black text-[#6b5e10] dark:text-[#eedc82] uppercase tracking-wider flex items-center gap-1">
+                    <Music className="w-3 h-3" />
+                    <span>Command Tier 02 • Head of Band Platoon (SGT)</span>
                   </div>
 
                   <HierarchyCadetCard
                     cadet={platoonData.sergeant}
-                    defaultRank="Cadet Seargent"
+                    defaultRank="Cadet Seargent (SGT)"
                     defaultRole="Head of Band Platoon"
+                    tierLabel="Tier 02 • SGT"
                     size="lg"
+                    isHighlighted={highlightedRank === 'SGT'}
                     icon={<Music className="w-5 h-5 text-[#6b5e10] dark:text-[#eedc82]" />}
                     onClick={(c) => setSelectedCadet(c)}
                   />
@@ -877,7 +1195,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
                   <div className="w-[2px] h-6 bg-[#b8b09d] dark:bg-[#4d483c]" />
                 </div>
 
-                {/* 2. SECOND LEVEL: 02 CORPORALS */}
+                {/* 2. SECOND LEVEL: 02 CORPORALS (CPL) - TIER 03 */}
                 <div className="relative pt-6">
                   {/* Horizontal Crossbar over 2 Corporals */}
                   <div className="absolute top-0 left-[25%] right-[25%] h-[2px] bg-[#b8b09d] dark:bg-[#4d483c]" />
@@ -890,9 +1208,11 @@ export const CadetRankHierarchyTree: React.FC = () => {
 
                         <HierarchyCadetCard
                           cadet={cpl}
-                          defaultRank="Cadet Corporal"
-                          defaultRole={`Band Corporal ${idx + 1}`}
+                          defaultRank="Cadet Corporal (CPL)"
+                          defaultRole={`Band Senior NCO 0${idx + 1}`}
+                          tierLabel={`Tier 03 • CPL 0${idx + 1}`}
                           size="md"
+                          isHighlighted={highlightedRank === 'CPL'}
                           onClick={(c) => setSelectedCadet(c)}
                         />
                       </div>
@@ -903,7 +1223,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
                 {/* Vertical Connector Line: Corporals to 3 Band Sections */}
                 <div className="w-[2px] h-7 bg-[#b8b09d] dark:bg-[#4d483c]" />
 
-                {/* 3. THIRD & FOURTH LEVEL: 3 BAND SECTIONS */}
+                {/* 3. THIRD & FOURTH LEVEL: 3 BAND SECTIONS (LCPL & CADETS) */}
                 <div className="relative pt-6">
                   {/* Horizontal Crossbar spanning the 3 Band Sections */}
                   <div className="absolute top-0 left-[calc(16.666%+16px)] right-[calc(16.666%+16px)] h-[2px] bg-[#b8b09d] dark:bg-[#4d483c]" />
@@ -922,22 +1242,24 @@ export const CadetRankHierarchyTree: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* LEVEL 3: 01 LANCE CORPORAL (Section Leader) */}
+                        {/* TIER 04: 01 LANCE CORPORAL (LCPL) - SECTION LEADER */}
                         <HierarchyCadetCard
                           cadet={sec.lcpl}
-                          defaultRank="Cadet Lance Corporal"
+                          defaultRank="Cadet Lance Corporal (LCPL)"
                           defaultRole={`${sec.title} Leader`}
+                          tierLabel="Tier 04 • LCPL"
                           size="md"
+                          isHighlighted={highlightedRank === 'LCPL'}
                           onClick={(c) => setSelectedCadet(c)}
                         />
 
                         {/* Vertical Connector to 3 Cadets */}
                         <div className="w-[2px] h-5 bg-[#b8b09d] dark:bg-[#4d483c]" />
 
-                        {/* LEVEL 4: 03 CADETS - CLEAN VERTICAL ALIGNMENT */}
+                        {/* TIER 05: 03 CADETS (CDT) - CLEAN VERTICAL ALIGNMENT */}
                         <div className="w-full p-2.5 rounded-2xl bg-[#e6ddcd]/85 dark:bg-[#181612]/90 border border-[#beaf91] dark:border-[#3c362a] shadow-xs backdrop-blur-xs space-y-2">
                           <div className="text-[10px] font-black text-[#5d5242] dark:text-[#aca596] uppercase tracking-wider text-center pb-1 border-b border-[#beaf91]/60 dark:border-[#38352d]">
-                            Section Cadets (03)
+                            Command Tier 05 • Musician Cadets (03)
                           </div>
 
                           <div className="space-y-2">
@@ -945,9 +1267,10 @@ export const CadetRankHierarchyTree: React.FC = () => {
                               <HierarchyCadetCard
                                 key={cadet?.id ? `band-${sec.num}-cdt-${cadet.id}-${cIdx}` : `band-${sec.num}-empty-${cIdx}`}
                                 cadet={cadet}
-                                defaultRank="Cadet"
+                                defaultRank="Cadet (CDT)"
                                 defaultRole={`Instrumentalist ${cIdx + 1}`}
                                 size="sm"
+                                isHighlighted={highlightedRank === 'CDT'}
                                 onClick={(c) => setSelectedCadet(c)}
                               />
                             ))}

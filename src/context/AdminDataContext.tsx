@@ -809,6 +809,16 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const merged: any = { ...existing };
         for (const [k, v] of Object.entries(r)) {
           if (v !== undefined && v !== null && v !== '') {
+            // Guard: Do not downgrade approved or active status from stale remote sync
+            if (k === 'isApproved' && existing.isApproved === true && v === false) {
+              continue;
+            }
+            if (k === 'status' && existing.status === 'Active' && v === 'Pending Approval') {
+              continue;
+            }
+            if (k === 'password' && existing.password && !v) {
+              continue;
+            }
             merged[k] = v;
           }
         }
@@ -824,7 +834,11 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     lastLocalWriteTimestamps.current[key] = Date.now();
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+        const valStr = typeof value === 'string' ? value : JSON.stringify(value);
+        localStorage.setItem(key, valStr);
+        if (key === 'ngdc_cadet_users_v8') {
+          localStorage.setItem('ngdc_cadet_users', valStr);
+        }
       } catch (e) {
         console.warn('localStorage save failed:', e);
       }

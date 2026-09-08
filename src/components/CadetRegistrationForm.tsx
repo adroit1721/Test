@@ -412,7 +412,7 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
     });
     setExForm({
       avatarUrl: '',
-      rank: 'CUO/ Cadet Under Officer',
+      rank: 'Cadet Under Officer (CUO)',
       batch: '',
       cadetNo: '',
       password: '',
