@@ -20,8 +20,10 @@ import {
   ArrowLeft,
   UserCheck,
   RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import { CadetUserAccount, PlatoonCategory } from '../types';
+import { compressAndConvertToDataUrl, processPassportPhoto } from '../utils/cloudinary';
 
 interface CadetRegistrationFormProps {
   isAdmin?: boolean;
@@ -187,29 +189,63 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
     }
   }, [editingCadet]);
 
-  // File Upload Helper (converts image to base64 DataURL)
-  const handleImageFile = (
+  const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
+  const [servingPhotoMeta, setServingPhotoMeta] = useState<{ sizeKb?: number; isCompliant?: boolean } | null>(null);
+  const [exPhotoMeta, setExPhotoMeta] = useState<{ sizeKb?: number; isCompliant?: boolean } | null>(null);
+
+  // File Upload Helper (Strictly enforces fixed 300x300 px and max 300 KB)
+  const handleImageFile = async (
     e: React.ChangeEvent<HTMLInputElement>,
     type: 'Current' | 'Ex-cadet'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 3 * 1024 * 1024) {
-      alert('Image size exceeds 3MB. Please choose a smaller passport photo.');
-      return;
-    }
+    setErrorMsg(null);
+    setIsPhotoProcessing(true);
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      if (type === 'Current') {
-        setServingForm((prev) => ({ ...prev, avatarUrl: result }));
-      } else {
-        setExForm((prev) => ({ ...prev, avatarUrl: result }));
+    try {
+      // BNCC Passport Photo Specification: Fixed 300x300, Max 300 KB
+      const res = await processPassportPhoto(file, 300);
+      if (res && res.url) {
+        if (type === 'Current') {
+          setServingForm((prev) => ({ ...prev, avatarUrl: res.url }));
+          setServingPhotoMeta({ sizeKb: res.fileSizeKb, isCompliant: res.isCompliant });
+        } else {
+          setExForm((prev) => ({ ...prev, avatarUrl: res.url }));
+          setExPhotoMeta({ sizeKb: res.fileSizeKb, isCompliant: res.isCompliant });
+        }
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.warn('Passport photo processing failed:', err);
+      setErrorMsg(err.message || 'Failed to process passport photo. Please upload a valid image under 300 KB.');
+    } finally {
+      setIsPhotoProcessing(false);
+    }
+  };
+
+  const handleImageUrlChange = async (url: string, type: 'Current' | 'Ex-cadet') => {
+    if (type === 'Current') {
+      setServingForm((prev) => ({ ...prev, avatarUrl: url }));
+    } else {
+      setExForm((prev) => ({ ...prev, avatarUrl: url }));
+    }
+    if (url.trim() && (url.startsWith('http://') || url.startsWith('https://'))) {
+      try {
+        const res = await processPassportPhoto(url.trim(), 300);
+        if (res && res.url) {
+          if (type === 'Current') {
+            setServingForm((prev) => ({ ...prev, avatarUrl: res.url }));
+            setServingPhotoMeta({ sizeKb: res.fileSizeKb, isCompliant: res.isCompliant });
+          } else {
+            setExForm((prev) => ({ ...prev, avatarUrl: res.url }));
+            setExPhotoMeta({ sizeKb: res.fileSizeKb, isCompliant: res.isCompliant });
+          }
+        }
+      } catch {
+        // preserve typed URL
+      }
+    }
   };
 
   // Section options for currently serving
@@ -239,6 +275,11 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
     }
     if (!servingForm.phone.trim()) {
       setErrorMsg('Contact Number (Self) is required.');
+      return;
+    }
+    // Requirement 1: Currently serving cadets must be required to upload passport size picture with uniform with a beret. Fixed 300x300, max 300 KB.
+    if (!servingForm.avatarUrl || !servingForm.avatarUrl.trim()) {
+      setErrorMsg('Currently serving cadets must upload a passport size picture in uniform with a beret (fixed 300x300 px, maximum 300 KB only).');
       return;
     }
 
@@ -674,42 +715,71 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
               <span>Platoon Assignment & Identity</span>
             </h4>
 
-            {/* Picture Upload */}
-            <div>
-              <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1.5">
-                Picture - With Uniform passport size <span className="text-red-500">*</span>
+            {/* Picture Upload - Serving Cadets: Required, Uniform with Beret, Fixed 300x300, Max 300 KB */}
+            <div className="space-y-2">
+              <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-xs sm:text-sm">
+                  Passport Size Picture with Uniform & Beret <span className="text-red-500 font-bold">*</span>
+                </span>
+                <span className="text-[10px] uppercase font-mono px-2.5 py-0.5 rounded-full bg-[#eedc82]/30 dark:bg-[#eedc82]/20 text-[#6b5e10] dark:text-[#eedc82] font-bold border border-[#eedc82]/50">
+                  Fixed 300 × 300 px • Max 300 KB Only
+                </span>
               </label>
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="w-24 h-28 rounded-2xl border-2 border-dashed border-[#cdc6b3] dark:border-[#423e35] bg-[#fcf9f3] dark:bg-[#1e1d19] overflow-hidden flex items-center justify-center shrink-0">
-                  {servingForm.avatarUrl ? (
-                    <img
-                      src={servingForm.avatarUrl}
-                      alt="Cadet Passport Photo"
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover"
-                    />
+
+              <div className="flex flex-col sm:flex-row items-center gap-4 bg-[#fcf9f3] dark:bg-[#1e1d19] p-3.5 rounded-2xl border border-[#cdc6b3]/60 dark:border-[#423e35]">
+                <div className="w-28 h-28 aspect-square rounded-xl border-2 border-dashed border-[#cdc6b3] dark:border-[#423e35] bg-[#f6f3ed] dark:bg-[#141311] overflow-hidden flex flex-col items-center justify-center shrink-0 relative shadow-inner">
+                  {isPhotoProcessing ? (
+                    <div className="flex flex-col items-center justify-center p-2 text-center text-[10px] text-[#6b5e10] dark:text-[#eedc82] animate-pulse">
+                      <Loader2 className="w-6 h-6 animate-spin mb-1 text-[#6b5e10] dark:text-[#eedc82]" />
+                      <span className="font-bold">Resizing 300×300...</span>
+                    </div>
+                  ) : servingForm.avatarUrl ? (
+                    <>
+                      <img
+                        src={servingForm.avatarUrl}
+                        alt="Cadet Portrait (Uniform with Beret)"
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute bottom-0 inset-x-0 bg-black/75 text-[9px] text-white py-0.5 text-center font-mono font-bold">
+                        300 × 300 px
+                      </div>
+                    </>
                   ) : (
-                    <User className="w-8 h-8 text-[#9c9586]" />
+                    <div className="text-center p-2">
+                      <User className="w-8 h-8 text-[#9c9586] mx-auto mb-1" />
+                      <span className="text-[9px] font-bold text-red-600 dark:text-red-400 block uppercase tracking-wider">Required *</span>
+                      <span className="text-[8px] text-[#7c7767] dark:text-[#aca596] block">300×300 px</span>
+                    </div>
                   )}
                 </div>
 
                 <div className="space-y-2 flex-grow w-full">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageFile(e, 'Current')}
-                    className="w-full text-xs text-[#5c5746] dark:text-[#aca596] file:mr-3 file:py-2 file:px-3.5 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-[#eedc82] file:text-[#1c1c18] hover:file:opacity-90 cursor-pointer"
-                  />
+                  <div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageFile(e, 'Current')}
+                      className="w-full text-xs text-[#5c5746] dark:text-[#aca596] file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-[#eedc82] file:text-[#1c1c18] hover:file:opacity-90 cursor-pointer"
+                    />
+                  </div>
                   <input
                     type="url"
                     placeholder="Or paste image URL (https://...)"
                     value={servingForm.avatarUrl}
-                    onChange={(e) => setServingForm({ ...servingForm, avatarUrl: e.target.value })}
-                    className="w-full bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
+                    onChange={(e) => handleImageUrlChange(e.target.value, 'Current')}
+                    className="w-full bg-white dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-1.5 rounded-xl text-xs text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
                   />
-                  <p className="text-[10px] text-[#7c7767] dark:text-[#aca596]">
-                    Passport size portrait in official BNCC uniform is required for the Digital ID and Rank Hierarchy.
-                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                    <p className="text-[#695c4e] dark:text-[#aca596] leading-tight">
+                      <span className="text-red-600 dark:text-red-400 font-bold">* Mandatory:</span> Currently serving cadets must upload a passport size picture in official uniform wearing a beret. Fixed 300×300 px, file size maximum 300 KB only.
+                    </p>
+                    {servingPhotoMeta?.sizeKb !== undefined && (
+                      <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md shrink-0">
+                        <CheckCircle2 className="w-3 h-3" /> 300×300 px • {servingPhotoMeta.sizeKb} KB (≤300 KB Compliant)
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1199,39 +1269,71 @@ export const CadetRegistrationForm: React.FC<CadetRegistrationFormProps> = ({
               <span>Alumni Rank & Verification</span>
             </h4>
 
-            {/* Photo Upload */}
-            <div>
-              <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] mb-1.5">
-                Picture / Portrait (Passport size)
+            {/* Photo Upload - Ex-Cadets: Formal Picture (Optional), if uploaded: Fixed 300x300, Max 300 KB */}
+            <div className="space-y-2">
+              <label className="block font-semibold text-[#1c1c18] dark:text-[#fcfbf7] flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-xs sm:text-sm">
+                  Passport Size Picture / Portrait (Formal) <span className="text-xs font-normal text-[#7c7767] dark:text-[#aca596]">(Optional)</span>
+                </span>
+                <span className="text-[10px] uppercase font-mono px-2.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-[#4a4738] dark:text-[#aca596] font-bold border border-zinc-300 dark:border-zinc-700">
+                  Optional • If Uploaded: 300 × 300 px • Max 300 KB Only
+                </span>
               </label>
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="w-24 h-28 rounded-2xl border-2 border-dashed border-[#cdc6b3] dark:border-[#423e35] bg-[#fcf9f3] dark:bg-[#1e1d19] overflow-hidden flex items-center justify-center shrink-0">
-                  {exForm.avatarUrl ? (
-                    <img
-                      src={exForm.avatarUrl}
-                      alt="Ex-Cadet Photo"
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover"
-                    />
+
+              <div className="flex flex-col sm:flex-row items-center gap-4 bg-[#fcf9f3] dark:bg-[#1e1d19] p-3.5 rounded-2xl border border-[#cdc6b3]/60 dark:border-[#423e35]">
+                <div className="w-28 h-28 aspect-square rounded-xl border-2 border-dashed border-[#cdc6b3] dark:border-[#423e35] bg-[#f6f3ed] dark:bg-[#141311] overflow-hidden flex flex-col items-center justify-center shrink-0 relative shadow-inner">
+                  {isPhotoProcessing ? (
+                    <div className="flex flex-col items-center justify-center p-2 text-center text-[10px] text-[#6b5e10] dark:text-[#eedc82] animate-pulse">
+                      <Loader2 className="w-6 h-6 animate-spin mb-1 text-[#6b5e10] dark:text-[#eedc82]" />
+                      <span className="font-bold">Resizing 300×300...</span>
+                    </div>
+                  ) : exForm.avatarUrl ? (
+                    <>
+                      <img
+                        src={exForm.avatarUrl}
+                        alt="Ex-Cadet Formal Portrait"
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute bottom-0 inset-x-0 bg-black/75 text-[9px] text-white py-0.5 text-center font-mono font-bold">
+                        300 × 300 px
+                      </div>
+                    </>
                   ) : (
-                    <User className="w-8 h-8 text-[#9c9586]" />
+                    <div className="text-center p-2">
+                      <User className="w-8 h-8 text-[#9c9586] mx-auto mb-1" />
+                      <span className="text-[9px] font-medium text-[#7c7767] dark:text-[#aca596] block">Optional</span>
+                      <span className="text-[8px] text-[#7c7767] dark:text-[#aca596] block">300×300 px</span>
+                    </div>
                   )}
                 </div>
 
                 <div className="space-y-2 flex-grow w-full">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageFile(e, 'Ex-cadet')}
-                    className="w-full text-xs text-[#5c5746] dark:text-[#aca596] file:mr-3 file:py-2 file:px-3.5 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-[#eedc82] file:text-[#1c1c18] hover:file:opacity-90 cursor-pointer"
-                  />
+                  <div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageFile(e, 'Ex-cadet')}
+                      className="w-full text-xs text-[#5c5746] dark:text-[#aca596] file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-[#eedc82] file:text-[#1c1c18] hover:file:opacity-90 cursor-pointer"
+                    />
+                  </div>
                   <input
                     type="url"
                     placeholder="Or paste photo URL (https://...)"
                     value={exForm.avatarUrl}
-                    onChange={(e) => setExForm({ ...exForm, avatarUrl: e.target.value })}
-                    className="w-full bg-[#fcf9f3] dark:bg-[#1e1d19] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-2 rounded-xl text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
+                    onChange={(e) => handleImageUrlChange(e.target.value, 'Ex-cadet')}
+                    className="w-full bg-white dark:bg-[#141311] border border-[#cdc6b3] dark:border-[#423e35] px-3.5 py-1.5 rounded-xl text-xs text-[#1c1c18] dark:text-[#fcfbf7] outline-none"
                   />
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                    <p className="text-[#695c4e] dark:text-[#aca596] leading-tight">
+                      Passport size formal photo is optional. If uploaded, the picture is strictly formatted to exact <strong>300×300 pixels</strong> (maximum <strong>300 KB only</strong>).
+                    </p>
+                    {exPhotoMeta?.sizeKb !== undefined && (
+                      <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md shrink-0">
+                        <CheckCircle2 className="w-3 h-3" /> 300×300 px • {exPhotoMeta.sizeKb} KB (≤300 KB Compliant)
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

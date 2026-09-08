@@ -71,12 +71,14 @@ export function resetSupabaseInstance(): void {
  * Format CadetUserAccount into Supabase Postgres database record
  */
 function mapCadetToSupabaseRecord(cadet: CadetUserAccount) {
-  // Store the complete full cadet record inside custom_fields.raw_cadet_data
-  // so ALL registration form fields (Bangla names, parents, dob, address, etc.)
-  // are persisted faithfully without data loss across sessions.
+  // Store the full cadet record inside custom_fields.raw_cadet_data
+  // but strip avatarUrl from raw_cadet_data so huge image strings are NOT duplicated
+  const rawWithoutAvatar = { ...cadet };
+  delete (rawWithoutAvatar as any).avatarUrl;
+
   const customFields = {
     ...((cadet as any).customFields || {}),
-    raw_cadet_data: { ...cadet },
+    raw_cadet_data: rawWithoutAvatar,
   };
 
   return {
@@ -215,11 +217,20 @@ export async function upsertCadetToSupabase(cadet: CadetUserAccount): Promise<bo
 /**
  * Delete a cadet from Supabase Postgres
  */
-export async function deleteCadetFromSupabase(id: string): Promise<boolean> {
+export async function deleteCadetFromSupabase(id: string, cadetNo?: string): Promise<boolean> {
   const client = getSupabaseClient();
   if (!client) return false;
 
   try {
+    if (cadetNo) {
+      try {
+        await client
+          .from('cadets')
+          .delete()
+          .eq('cadet_no', cadetNo);
+      } catch {}
+    }
+
     const { error } = await client
       .from('cadets')
       .delete()

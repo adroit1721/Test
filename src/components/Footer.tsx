@@ -59,6 +59,13 @@ export const Footer: React.FC<FooterProps> = ({
               </a>
             </div>
 
+            {footerConfig.emergencyPhone && (
+              <div className="flex items-center gap-2.5 text-[11px] text-amber-700 dark:text-amber-300 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                <span>Duty / Hotline: {footerConfig.emergencyPhone}</span>
+              </div>
+            )}
+
             <div className="flex items-center gap-2.5">
               <Mail className="w-3.5 h-3.5 text-[#6b5e10] dark:text-[#eedc82] shrink-0" />
               <a
@@ -79,7 +86,7 @@ export const Footer: React.FC<FooterProps> = ({
           <ul className="flex flex-col space-y-2 text-xs sm:text-[13px]">
             <li>
               <a
-                href="https://ngdc.ac.bd"
+                href={footerConfig.collegeOfficialUrl || "https://ngdc.ac.bd"}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[#555042] dark:text-[#9e9788] hover:text-[#6b5e10] dark:hover:text-[#eedc82] transition-colors inline-flex items-center gap-1.5 font-medium group"
@@ -90,7 +97,7 @@ export const Footer: React.FC<FooterProps> = ({
             </li>
             <li>
               <a
-                href="https://bncc.info/"
+                href={footerConfig.bnccGovUrl || "https://bncc.info/"}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[#555042] dark:text-[#9e9788] hover:text-[#6b5e10] dark:hover:text-[#eedc82] transition-colors inline-flex items-center gap-1.5 font-medium group"
@@ -260,6 +267,23 @@ export const Footer: React.FC<FooterProps> = ({
               </span>
               <span className="font-medium">Instagram</span>
             </a>
+
+            {/* LinkedIn (if configured) */}
+            {footerConfig.linkedinUrl && (
+              <a
+                href={footerConfig.linkedinUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2.5 p-1.5 rounded-lg text-[#555042] dark:text-[#9e9788] hover:text-[#0A66C2] dark:hover:text-[#0A66C2] hover:bg-[#0A66C2]/10 transition-all group"
+              >
+                <span className="w-7 h-7 rounded-full bg-[#f0eee8] dark:bg-[#1a1915] border border-transparent dark:border-white/5 flex items-center justify-center text-[#0A66C2] group-hover:scale-110 transition-transform shadow-2xs">
+                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                  </svg>
+                </span>
+                <span className="font-medium">LinkedIn</span>
+              </a>
+            )}
           </div>
         </div>
       </div>

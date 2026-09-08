@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAdminData } from '../../../context/AdminDataContext';
 import { MemoryItem } from '../../../types';
+import { compressAndConvertToDataUrl } from '../../../utils/cloudinary';
 import {
   Plus,
   Trash2,
@@ -75,16 +76,17 @@ export const MemoriesTab: React.FC = () => {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setForm((prev) => ({ ...prev, imageUrl: event.target!.result as string }));
+    try {
+      const optimizedUrl = await compressAndConvertToDataUrl(file, 1200, 1200, 0.8);
+      if (optimizedUrl) {
+        setForm((prev) => ({ ...prev, imageUrl: optimizedUrl }));
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('Memory photo compression failed:', err);
+    }
   };
 
   return (

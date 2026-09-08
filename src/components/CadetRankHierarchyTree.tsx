@@ -360,9 +360,12 @@ export const CadetRankHierarchyTree: React.FC = () => {
   // Cadets in current active platoon
   const platoonCadets = useMemo(() => {
     return servingCadets.filter((c) => {
-      const cat = (c.category || c.platoon || '').toLowerCase();
-      const sec = (c.section || '').toLowerCase();
-      const isBand = cat.includes('band') || sec.includes('band');
+      const cat = (c.category || '').toLowerCase().trim();
+      const plt = (c.platoon || '').toLowerCase().trim();
+      const sec = (c.section || '').toLowerCase().trim();
+      const g = (c.gender || '').toLowerCase().trim();
+
+      const isBand = cat.includes('band') || plt.includes('band') || sec.includes('band');
 
       if (activeTab === 'Band Platoon') {
         return isBand;
@@ -370,11 +373,14 @@ export const CadetRankHierarchyTree: React.FC = () => {
       if (isBand) {
         return false;
       }
+
+      const isFemale = cat.includes('female') || plt.includes('female') || g === 'female';
+
       if (activeTab === 'Female Platoon') {
-        return cat.includes('female') || c.gender === 'Female';
+        return isFemale;
       }
       if (activeTab === 'Male Platoon') {
-        return (!cat.includes('female') && c.gender !== 'Female') || cat.includes('male') || c.gender === 'Male';
+        return !isFemale;
       }
       return false;
     });
@@ -765,7 +771,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
         if (item) {
           return {
             ...item,
-            role: `${sec.title} Rifleman ${cdtIdx + 1}`,
+            role: item.appointment || item.role || `${sec.title} Rifleman ${cdtIdx + 1}`,
           };
         }
         return null;
@@ -1087,7 +1093,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
                           defaultRole="Section Commander"
                           tierLabel="Tier 03 • CPL"
                           size="md"
-                          isHighlighted={highlightedRank === 'CPL'}
+                          isHighlighted={highlightedRank === (sec.cpl ? getRankCode(sec.cpl.rank) : 'CPL')}
                           onClick={(c) => setSelectedCadet(c)}
                         />
 
@@ -1101,7 +1107,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
                           defaultRole="Section 2IC"
                           tierLabel="Tier 04 • LCPL"
                           size="md"
-                          isHighlighted={highlightedRank === 'LCPL'}
+                          isHighlighted={highlightedRank === (sec.lcpl ? getRankCode(sec.lcpl.rank) : 'LCPL')}
                           onClick={(c) => setSelectedCadet(c)}
                         />
 
@@ -1123,7 +1129,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
                                 defaultRank="Cadet (CDT)"
                                 defaultRole={`Rifleman ${cdtIdx + 1}`}
                                 size="sm"
-                                isHighlighted={highlightedRank === 'CDT'}
+                                isHighlighted={highlightedRank === (cadet ? getRankCode(cadet.rank) : 'CDT')}
                                 onClick={(c) => setSelectedCadet(c)}
                               />
                             ))}
@@ -1212,7 +1218,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
                           defaultRole={`Band Senior NCO 0${idx + 1}`}
                           tierLabel={`Tier 03 • CPL 0${idx + 1}`}
                           size="md"
-                          isHighlighted={highlightedRank === 'CPL'}
+                          isHighlighted={highlightedRank === (cpl ? getRankCode(cpl.rank) : 'CPL')}
                           onClick={(c) => setSelectedCadet(c)}
                         />
                       </div>
@@ -1249,7 +1255,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
                           defaultRole={`${sec.title} Leader`}
                           tierLabel="Tier 04 • LCPL"
                           size="md"
-                          isHighlighted={highlightedRank === 'LCPL'}
+                          isHighlighted={highlightedRank === (sec.lcpl ? getRankCode(sec.lcpl.rank) : 'LCPL')}
                           onClick={(c) => setSelectedCadet(c)}
                         />
 
@@ -1270,7 +1276,7 @@ export const CadetRankHierarchyTree: React.FC = () => {
                                 defaultRank="Cadet (CDT)"
                                 defaultRole={`Instrumentalist ${cIdx + 1}`}
                                 size="sm"
-                                isHighlighted={highlightedRank === 'CDT'}
+                                isHighlighted={highlightedRank === (cadet ? getRankCode(cadet.rank) : 'CDT')}
                                 onClick={(c) => setSelectedCadet(c)}
                               />
                             ))}

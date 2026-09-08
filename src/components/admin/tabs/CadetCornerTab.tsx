@@ -566,6 +566,35 @@ export const CadetCornerTab: React.FC = () => {
                       Export Cadet Directory
                     </div>
 
+                    <div className="p-2 bg-[#eedc82]/20 dark:bg-[#eedc82]/10 rounded-xl space-y-1.5 border border-[#eedc82]/40">
+                      <div className="text-[11px] font-bold text-[#1c1c18] dark:text-[#fcfbf7] flex items-center justify-between">
+                        <span>All Cadets ({cadetUsers.length})</span>
+                        <span className="text-[9px] uppercase tracking-wider font-mono text-[#6b5e10] dark:text-[#eedc82]">Combined</span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            downloadCadetsFile(cadetUsers, 'all', 'xlsx');
+                            setIsExportMenuOpen(false);
+                          }}
+                          className="flex-1 py-1.5 px-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-800 dark:text-emerald-300 font-bold rounded-lg transition-colors flex items-center justify-center gap-1 text-[11px] cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" /> Excel (.xlsx)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            downloadCadetsFile(cadetUsers, 'all', 'csv');
+                            setIsExportMenuOpen(false);
+                          }}
+                          className="flex-1 py-1.5 px-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-[#1c1c18] dark:text-[#fcfbf7] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 text-[11px] cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" /> CSV (.csv)
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="p-2 bg-[#f6f3ed] dark:bg-[#141311] rounded-xl space-y-1.5">
                       <div className="text-[11px] font-bold text-[#1c1c18] dark:text-[#fcfbf7]">
                         Currently Serving Cadets ({maleServingCount + femaleServingCount + bandServingCount})

@@ -17,7 +17,8 @@ import {
   Search,
   Check,
   Building2,
-  BookOpen
+  BookOpen,
+  Loader2,
 } from 'lucide-react';
 import { useAdminData } from '../context/AdminDataContext';
 import { RecruitmentFormState, RecruitmentApplicant, ApplicantAddress, ApplicantQualification, TabType } from '../types';
@@ -30,6 +31,7 @@ import {
   DIVISION_GROUP_OPTIONS,
 } from '../data/bangladeshGeoData';
 import { ASSETS } from '../data/bnccData';
+import { compressAndConvertToDataUrl, processPassportPhoto } from '../utils/cloudinary';
 
 // Generate passing years list from current year down to 2000
 const CURRENT_YEAR = new Date().getFullYear();
@@ -103,27 +105,34 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
 
   const [sameAsPresent, setSameAsPresent] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
+  const [photoMeta, setPhotoMeta] = useState<{ sizeKb?: number; isCompliant?: boolean } | null>(null);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [submittedApplicant, setSubmittedApplicant] = useState<RecruitmentApplicant | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const isWindowActive = isRecruitmentOpen !== undefined ? isRecruitmentOpen : (recruitmentAnnouncement?.isActive !== false);
 
-  // Handle Photo Upload
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Photo Upload with BNCC specification: Fixed 300x300 px, max 300 KB only
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert('Photo size should be less than 2MB');
-        return;
+    if (!file) return;
+
+    setErrorMsg(null);
+    setIsPhotoProcessing(true);
+
+    try {
+      const res = await processPassportPhoto(file, 300);
+      if (res && res.url) {
+        setAvatarPreview(res.url);
+        setFormData((prev) => ({ ...prev, avatarUrl: res.url }));
+        setPhotoMeta({ sizeKb: res.fileSizeKb, isCompliant: res.isCompliant });
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setAvatarPreview(result);
-        setFormData((prev) => ({ ...prev, avatarUrl: result }));
-      };
-      reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.warn('Applicant photo processing failed:', err);
+      setErrorMsg(err.message || 'Failed to process passport photo. Please upload a valid image under 300 KB.');
+    } finally {
+      setIsPhotoProcessing(false);
     }
   };
 
@@ -268,6 +277,12 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
     }
     if (!formData.guardianConsentAccepted) {
       setErrorMsg('Guardian consent confirmation is required (Section 21).');
+      return;
+    }
+    // Requirement 3: New applicants for cadet recruitment must upload passport size formal picture (fixed 300x300, max 300 KB)
+    if (!avatarPreview && !formData.avatarUrl) {
+      setErrorMsg('Passport size formal picture is required (fixed 300x300 px, max 300 KB only). Please attach applicant photograph.');
+      window.scrollTo({ top: 380, behavior: 'smooth' });
       return;
     }
 
@@ -614,41 +629,70 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ setActiveTab }
           <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8 text-xs text-[#1c1c18] dark:text-[#fcfbf7]">
             {/* Top Card: Photo Upload Box & Name (Items 1 - 3) */}
             <div className="bg-white dark:bg-[#1f1e1a] p-4 sm:p-6 rounded-2xl border border-[#dcd6c8] dark:border-[#3a352b] shadow-xs flex flex-col md:flex-row items-center md:items-start gap-6">
-              {/* Photo Box */}
-              <div className="w-32 h-36 border-2 border-dashed border-[#7c7767] dark:border-[#695c4e] rounded-xl overflow-hidden bg-[#faf8f5] dark:bg-[#181714] flex flex-col items-center justify-center p-2 text-center relative shrink-0 group shadow-inner">
-                {avatarPreview ? (
-                  <>
-                    <img
-                      src={avatarPreview}
-                      alt="Applicant Photo"
-                      className="w-full h-full object-cover rounded-lg"
-                      referrerPolicy="no-referrer"
-                    />
+              {/* Photo Box - Fixed 300x300 px, Max 300 KB, Required */}
+              <div className="flex flex-col items-center gap-2 shrink-0">
+                <div className={`w-36 h-36 aspect-square border-2 border-dashed ${!avatarPreview ? 'border-red-400 dark:border-red-600 bg-red-50/20 dark:bg-red-950/10' : 'border-[#7c7767] dark:border-[#695c4e] bg-[#faf8f5] dark:bg-[#181714]'} rounded-2xl overflow-hidden flex flex-col items-center justify-center p-1 text-center relative group shadow-inner`}>
+                  {isPhotoProcessing ? (
+                    <div className="flex flex-col items-center justify-center p-2 text-center text-xs text-[#6b5e10] dark:text-[#eedc82] animate-pulse">
+                      <Loader2 className="w-7 h-7 animate-spin mb-1 text-[#6b5e10] dark:text-[#eedc82]" />
+                      <span className="font-bold text-[11px]">Resizing 300×300...</span>
+                    </div>
+                  ) : avatarPreview ? (
+                    <>
+                      <img
+                        src={avatarPreview}
+                        alt="Applicant Formal Photo"
+                        className="w-full h-full object-cover rounded-xl"
+                        referrerPolicy="no-referrer"
+                      />
+                      <label
+                        htmlFor="photo-upload-input"
+                        className="absolute inset-0 bg-black/65 text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity rounded-xl"
+                      >
+                        <Upload className="w-5 h-5 mb-1" />
+                        <span>Change Photo</span>
+                      </label>
+                      <div className="absolute bottom-0 inset-x-0 bg-black/75 text-[9px] text-white py-0.5 text-center font-mono font-bold">
+                        300 × 300 px
+                      </div>
+                    </>
+                  ) : (
                     <label
                       htmlFor="photo-upload-input"
-                      className="absolute inset-0 bg-black/60 text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity"
+                      className="flex flex-col items-center justify-center w-full h-full cursor-pointer hover:bg-gray-100 dark:hover:bg-[#25231c] transition-colors p-2 text-center"
                     >
-                      <Upload className="w-4 h-4 mb-1" />
-                      <span>Change Photo</span>
+                      <User className="w-9 h-9 text-gray-400 mb-1" />
+                      <span className="font-bold text-[11px] text-[#1c1c18] dark:text-[#fcfbf7] leading-tight">
+                        Upload Formal Photo <span className="text-red-600 dark:text-red-400">*</span>
+                      </span>
+                      <span className="text-[9px] text-[#6b5e10] dark:text-[#eedc82] font-semibold mt-0.5">
+                        Fixed 300 × 300 px
+                      </span>
+                      <span className="text-[8px] text-red-600 dark:text-red-400 font-bold mt-0.5 uppercase tracking-wider">
+                        Max 300 KB Only
+                      </span>
                     </label>
-                  </>
-                ) : (
-                  <label
-                    htmlFor="photo-upload-input"
-                    className="flex flex-col items-center justify-center w-full h-full cursor-pointer hover:bg-gray-100 dark:hover:bg-[#25231c] transition-colors p-1"
-                  >
-                    <User className="w-8 h-8 text-gray-400 mb-1" />
-                    <span className="font-bold text-[11px] leading-tight">Attach Photo</span>
-                    <span className="text-[9px] text-gray-400 mt-0.5">300 x 300 px</span>
-                  </label>
-                )}
-                <input
-                  id="photo-upload-input"
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                />
+                  )}
+                  <input
+                    id="photo-upload-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="text-center max-w-[150px]">
+                  {photoMeta?.sizeKb !== undefined ? (
+                    <span className="inline-flex items-center gap-1 font-mono text-[9px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
+                      <CheckCircle2 className="w-3 h-3" /> 300×300 • {photoMeta.sizeKb} KB
+                    </span>
+                  ) : (
+                    <span className="text-[9px] text-[#7c7767] dark:text-[#aca596] block leading-tight font-medium">
+                      Formal passport photo is <span className="text-red-600 dark:text-red-400 font-bold">mandatory</span>
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Identity Details */}

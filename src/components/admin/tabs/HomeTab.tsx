@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAdminData } from '../../../context/AdminDataContext';
 import { HeroSlide, ExecutiveMessageConfig } from '../../../types';
 import { CloudinaryUploader } from '../../common/CloudinaryUploader';
+import { compressAndConvertToDataUrl } from '../../../utils/cloudinary';
 import {
   Plus,
   Trash2,
@@ -114,44 +115,47 @@ export const HomeTab: React.FC = () => {
     }
   };
 
-  const handleSlideFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSlideFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setSlideFormData((prev) => ({ ...prev, imageUrl: event.target!.result as string }));
+    try {
+      const optimizedUrl = await compressAndConvertToDataUrl(file, 1600, 1200, 0.8);
+      if (optimizedUrl) {
+        setSlideFormData((prev) => ({ ...prev, imageUrl: optimizedUrl }));
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('Slide image processing failed:', err);
+    }
   };
 
   // Principal Image Upload
-  const handlePrincipalPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePrincipalPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setPrincipalForm((prev) => ({ ...prev, photoUrl: event.target!.result as string }));
+    try {
+      const optimizedUrl = await compressAndConvertToDataUrl(file, 800, 800, 0.8);
+      if (optimizedUrl) {
+        setPrincipalForm((prev) => ({ ...prev, photoUrl: optimizedUrl }));
         setIsPrincipalDirty(true);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('Principal image processing failed:', err);
+    }
   };
 
   // Vice Principal Image Upload
-  const handleVicePrincipalPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVicePrincipalPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setVicePrincipalForm((prev) => ({ ...prev, photoUrl: event.target!.result as string }));
+    try {
+      const optimizedUrl = await compressAndConvertToDataUrl(file, 800, 800, 0.8);
+      if (optimizedUrl) {
+        setVicePrincipalForm((prev) => ({ ...prev, photoUrl: optimizedUrl }));
         setIsVicePrincipalDirty(true);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('Vice principal image processing failed:', err);
+    }
   };
 
   // Save Principal Message

@@ -262,6 +262,7 @@ export const JoinRecruitmentModal: React.FC<{
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [createdApplicant, setCreatedApplicant] = useState<RecruitmentApplicant | null>(null);
   const [showA4Slip, setShowA4Slip] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -269,6 +270,13 @@ export const JoinRecruitmentModal: React.FC<{
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+
+    // Requirement 3: New applicants must upload passport size formal picture (fixed 300x300, max 300 KB)
+    if (!avatarUrl || !avatarUrl.trim()) {
+      setErrorMsg('Passport size formal picture is required (fixed 300x300 px, maximum 300 KB only).');
+      return;
+    }
 
     const applicantPayload: Omit<RecruitmentApplicant, 'id' | 'appliedAt' | 'token' | 'status'> = {
       fullName: formData.fullName,
@@ -388,6 +396,13 @@ export const JoinRecruitmentModal: React.FC<{
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              {errorMsg && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-2xl flex items-center gap-2 text-rose-800 dark:text-rose-200">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span className="font-semibold">{errorMsg}</span>
+                </div>
+              )}
+
               <div className="p-3 bg-[#f6f3ed] dark:bg-[#141311] border border-[#cdc6b3]/50 dark:border-[#423e35] rounded-2xl flex items-start gap-2 text-[11px] text-[#4a4738] dark:text-[#aca596]">
                 <AlertCircle className="w-4 h-4 text-[#6b5e10] dark:text-[#eedc82] shrink-0 mt-0.5" />
                 <span>
@@ -398,13 +413,19 @@ export const JoinRecruitmentModal: React.FC<{
               {/* Applicant Photograph Upload via Cloudinary */}
               <div className="p-3 bg-white dark:bg-[#252420] border border-[#cdc6b3]/60 dark:border-[#423e35] rounded-2xl">
                 <CloudinaryUploader
-                  label="Applicant Formal Photograph (Optional / Cloudinary)"
+                  label="Applicant Formal Photograph (Required *)"
                   value={avatarUrl}
                   currentImageUrl={avatarUrl}
                   folder="recruitment/applicants"
-                  onChange={(url) => setAvatarUrl(url)}
-                  onUploadComplete={(url) => setAvatarUrl(url)}
-                  helpText="Passport size photo recommended. Appears on your A4 verification slip."
+                  onChange={(url) => {
+                    setAvatarUrl(url);
+                    if (url) setErrorMsg(null);
+                  }}
+                  onUploadComplete={(url) => {
+                    setAvatarUrl(url);
+                    if (url) setErrorMsg(null);
+                  }}
+                  helpText="Passport size formal picture is mandatory. Fixed 300 × 300 px, file size maximum 300 KB only."
                 />
               </div>
 

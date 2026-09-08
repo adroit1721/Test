@@ -1,7 +1,7 @@
 // src/components/common/CloudinaryUploader.tsx
 import React, { useState, useRef } from 'react';
 import { Upload, Loader2, CheckCircle2, AlertCircle, X, Cloud } from 'lucide-react';
-import { uploadImageToCloudinary, getOptimizedImageUrl } from '../../utils/cloudinary';
+import { uploadImageToCloudinary, getOptimizedImageUrl, processPassportPhoto } from '../../utils/cloudinary';
 
 interface CloudinaryUploaderProps {
   value?: string;
@@ -57,15 +57,31 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
 
     setIsUploading(true);
     setUploadProgress(10);
-    setStatusMessage({ type: 'info', text: 'Compressing & uploading to Cloudinary...' });
+    setStatusMessage({ type: 'info', text: 'Processing image specifications...' });
 
     try {
+      // If photo is a passport photo (square or cadets/applicants folder), strictly enforce fixed 300x300 and max 300 KB
+      if (aspectRatio === 'square' || folder.includes('applicant') || folder.includes('cadet')) {
+        setStatusMessage({ type: 'info', text: 'Formatting to fixed 300×300 px (max 300 KB)...' });
+        const processed = await processPassportPhoto(file, 300);
+        if (processed && processed.url) {
+          setStatusMessage({
+            type: 'success',
+            text: `Processed: 300×300 px (${processed.fileSizeKb} KB, compliant)`,
+          });
+          setLocalPreview(null);
+          if (typeof onChange === 'function') onChange(processed.url);
+          if (typeof onUploadComplete === 'function') onUploadComplete(processed.url);
+          return;
+        }
+      }
+
       const uploadRes = await uploadImageToCloudinary(file, folder, (percent) => {
         setUploadProgress(percent);
         setStatusMessage({ type: 'info', text: `Uploading: ${percent}%...` });
       });
 
-      setStatusMessage({ type: 'success', text: 'Uploaded to Cloudinary CDN!' });
+      setStatusMessage({ type: 'success', text: 'Uploaded successfully!' });
       setLocalPreview(null);
       if (typeof onChange === 'function') onChange(uploadRes.url);
       if (typeof onUploadComplete === 'function') onUploadComplete(uploadRes.url);

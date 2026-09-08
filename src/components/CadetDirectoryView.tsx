@@ -19,6 +19,7 @@ import {
   Users,
   CheckCircle2,
   BookOpen,
+  Trash2,
 } from 'lucide-react';
 import { CadetUserAccount } from '../types';
 
@@ -27,7 +28,7 @@ interface CadetDirectoryViewProps {
 }
 
 export const CadetDirectoryView: React.FC<CadetDirectoryViewProps> = ({ isCadetLoggedIn = false }) => {
-  const { cadetUsers } = useAdminData();
+  const { cadetUsers, isAdminLoggedIn, deleteCadetUser } = useAdminData();
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -367,14 +368,29 @@ export const CadetDirectoryView: React.FC<CadetDirectoryViewProps> = ({ isCadetL
               </div>
 
               {/* View Full Profile Footer */}
-              <div className="pt-1">
+              <div className="pt-1 flex items-center gap-1.5">
                 <button
                   type="button"
-                  className="w-full py-1.5 rounded-xl bg-[#f6f3ed] dark:bg-[#141311] hover:bg-[#eedc82] dark:hover:bg-[#eedc82] hover:text-[#1c1c18] dark:hover:text-[#1c1c18] text-[#695c4e] dark:text-[#aca596] font-bold text-[11px] transition-all flex items-center justify-center gap-1"
+                  className="flex-1 py-1.5 rounded-xl bg-[#f6f3ed] dark:bg-[#141311] hover:bg-[#eedc82] dark:hover:bg-[#eedc82] hover:text-[#1c1c18] dark:hover:text-[#1c1c18] text-[#695c4e] dark:text-[#aca596] font-bold text-[11px] transition-all flex items-center justify-center gap-1 cursor-pointer"
                 >
                   <span>View Full Record</span>
                   <ExternalLink className="w-3 h-3" />
                 </button>
+                {isAdminLoggedIn && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Permanently delete cadet "${cadet.cadetNo} - ${cadet.name}" from database?`)) {
+                        deleteCadetUser(cadet.id);
+                      }
+                    }}
+                    className="p-1.5 rounded-xl text-red-500 hover:text-white hover:bg-red-600 bg-red-500/10 transition-colors cursor-pointer"
+                    title="Delete Cadet"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -620,10 +636,30 @@ export const CadetDirectoryView: React.FC<CadetDirectoryViewProps> = ({ isCadetL
             </div>
 
             {/* Modal Footer */}
-            <div className="pt-2 flex justify-end">
+            <div className="pt-2 flex items-center justify-between">
+              {isAdminLoggedIn && selectedCadet && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (
+                      confirm(
+                        `Are you sure you want to permanently delete cadet "${selectedCadet.cadetNo} - ${selectedCadet.name}" from the database?`
+                      )
+                    ) {
+                      deleteCadetUser(selectedCadet.id);
+                      setSelectedCadet(null);
+                    }
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-red-600/10 text-red-600 hover:bg-red-600 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Cadet</span>
+                </button>
+              )}
               <button
+                type="button"
                 onClick={() => setSelectedCadet(null)}
-                className="japandi-btn-secondary px-6 py-2.5 text-xs font-bold cursor-pointer"
+                className="japandi-btn-secondary px-6 py-2.5 text-xs font-bold cursor-pointer ml-auto"
               >
                 Close Profile
               </button>

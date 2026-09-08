@@ -791,16 +791,58 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Timestamp tracker for local writes to prevent broadcast echo loops from overwriting active admin edits
   const lastLocalWriteTimestamps = useRef<Record<string, number>>({});
 
+  // Tombstone tracker for deleted cadet IDs and CadetNos to prevent stale syncs/broadcasts from resurrecting them
+  const deletedCadetTombstones = useRef<Set<string>>((() => {
+    const s = new Set<string>();
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('ngdc_deleted_cadets_tombstones');
+        if (saved) {
+          const arr = JSON.parse(saved);
+          if (Array.isArray(arr)) arr.forEach((x) => s.add(String(x)));
+        }
+      } catch {}
+    }
+    return s;
+  })());
+
+  const addCadetTombstone = (id: string, cadetNo?: string) => {
+    if (id) deletedCadetTombstones.current.add(id);
+    if (cadetNo) deletedCadetTombstones.current.add(cadetNo.trim().toUpperCase());
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(
+          'ngdc_deleted_cadets_tombstones',
+          JSON.stringify(Array.from(deletedCadetTombstones.current))
+        );
+      } catch {}
+    }
+  };
+
   const mergeCadetLists = (local: CadetUserAccount[], remote: CadetUserAccount[]): CadetUserAccount[] => {
     if (!Array.isArray(remote) || remote.length === 0) return local || [];
-    if (!Array.isArray(local) || local.length === 0) return remote || [];
+    if (!Array.isArray(local) || local.length === 0) {
+      // Filter remote by tombstones
+      return remote.filter((r) => {
+        if (!r) return false;
+        if (r.id && deletedCadetTombstones.current.has(r.id)) return false;
+        if (r.cadetNo && deletedCadetTombstones.current.has(r.cadetNo.trim().toUpperCase())) return false;
+        return true;
+      });
+    }
+
     const map = new Map<string, CadetUserAccount>();
     for (const c of local) {
       if (c && c.id) map.set(c.id, c);
       else if (c && c.cadetNo) map.set(`cadetno-${c.cadetNo.toUpperCase()}`, c);
     }
+
     for (const r of remote) {
       if (!r) continue;
+      // If this cadet was deleted, never resurrect it!
+      if (r.id && deletedCadetTombstones.current.has(r.id)) continue;
+      if (r.cadetNo && deletedCadetTombstones.current.has(r.cadetNo.trim().toUpperCase())) continue;
+
       const key =
         (r.id && map.has(r.id) && r.id) ||
         (r.cadetNo && map.has(`cadetno-${r.cadetNo.toUpperCase()}`) && `cadetno-${r.cadetNo.toUpperCase()}`);
@@ -1217,6 +1259,7 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const setFooterConfigAndSave = (val: any) => {
     setFooterConfig((prev: any) => {
       const next = typeof val === 'function' ? val(prev) : val;
+      saveSettingWithTimestamp('ngdc_footer_config', next);
       upsertSiteSetting('ngdc_footer_config', next);
       return next;
     });
@@ -1590,7 +1633,18 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       try {
         const remote = await fetchCadetsFromSupabase();
         if (remote && Array.isArray(remote) && remote.length > 0) {
-          setCadetUsersAndSave((prev: CadetUserAccount[]) => mergeCadetLists(prev, remote));
+          // Use plain setCadetUsers so we do NOT write back to Supabase and trigger echo egress loops
+          setCadetUsers((prev: CadetUserAccount[]) => {
+            const merged = mergeCadetLists(prev, remote);
+            if (typeof window !== 'undefined') {
+              try {
+                const str = JSON.stringify(merged);
+                localStorage.setItem('ngdc_cadet_users_v8', str);
+                localStorage.setItem('ngdc_cadet_users', str);
+              } catch {}
+            }
+            return merged;
+          });
         }
       } catch (err) {
         console.warn('Error fetching cadets from Supabase:', err);
@@ -1613,6 +1667,11 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       cadetType: user.cadetType || (category === 'Ex-cadets' ? 'Ex-cadet' : 'Current'),
       isApproved: user.isApproved !== undefined ? user.isApproved : true,
     };
+
+    // Remove from tombstone set if this cadet was previously deleted
+    deletedCadetTombstones.current.delete(newUser.id);
+    if (newUser.cadetNo) deletedCadetTombstones.current.delete(newUser.cadetNo.trim().toUpperCase());
+
     setCadetUsersAndSave((prev) => [newUser, ...prev]);
 
     // Asynchronously push to Supabase Postgres database if configured
@@ -1639,9 +1698,28 @@ export const AdminDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const deleteCadetUser = (id: string) => {
-    setCadetUsersAndSave((prev) => prev.filter((u) => u.id !== id));
-    // Asynchronously delete from Supabase Postgres database
-    deleteCadetFromSupabase(id).catch((err) => {
+    // 1. Identify cadet and tombstone both ID and CadetNo to prevent resurrection
+    const target = cadetUsers.find((u) => u.id === id);
+    addCadetTombstone(id, target?.cadetNo);
+
+    // 2. Immediate 0ms optimistic state & localStorage update
+    setCadetUsers((prev) => {
+      const remaining = prev.filter(
+        (u) => u.id !== id && (target?.cadetNo ? u.cadetNo !== target.cadetNo : true)
+      );
+      if (typeof window !== 'undefined') {
+        try {
+          const str = JSON.stringify(remaining);
+          localStorage.setItem('ngdc_cadet_users_v8', str);
+          localStorage.setItem('ngdc_cadet_users', str);
+        } catch {}
+      }
+      saveSettingWithTimestamp('ngdc_cadet_users_v8', remaining);
+      return remaining;
+    });
+
+    // 3. Delete from Supabase PostgreSQL cadets table (matching id or cadet_no)
+    deleteCadetFromSupabase(id, target?.cadetNo).catch((err) => {
       console.warn('Failed to delete cadet from Supabase:', err);
     });
   };
